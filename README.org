@@ -9,3 +9,9 @@ and preferred an offline installation, this uses [[https://wiki.archlinux.org/in
 ** Software Included
 The exact list of packages added is present in ~packages.x86_64~
 The basic end-user packages and the intended usage is described here.
+** Size
+Just cuz I can, this lists the size as I make changes:
+
+| Package    | Size (MB) |
+| base       | ~ 567     |
+| +veracrypt | 688       |
