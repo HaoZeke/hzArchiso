@@ -1,7 +1,11 @@
 * About
 This is a custom archlinux live-usb mainly meant for setting up encrypted
-installations.
+installations. This uses [[swaywm.org/][sway]] and [[https://github.com/thestinger/termite][termite]], for maximum cross compatibility.
+
+** Methodology
+Instead of using the standard ~archiso~ package, since I required AUR packages
+and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]].
 
 ** Software Included
-
 The exact list of packages added is present in ~packages.x86_64~
+The basic end-user packages and the intended usage is described here.
