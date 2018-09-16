@@ -1,0 +1,7 @@
+* About
+This is a custom archlinux live-usb mainly meant for setting up encrypted
+installations.
+
+** Software Included
+
+The exact list of packages added is present in ~packages.x86_64~
