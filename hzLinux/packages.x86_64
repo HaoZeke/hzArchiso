@@ -8,7 +8,6 @@ crda
 darkhttpd
 ddrescue
 dhclient
-dialog
 dmraid
 dnsmasq
 dnsutils
@@ -59,11 +58,9 @@ usb_modeswitch
 vim-minimal
 vpnc
 wget
-wireless-regdb
-wireless_tools
-wpa_actiond
 wvdial
 xl2tpd
 
 # Added
 veracrypt
+networkmanager
