@@ -1,4 +1,4 @@
-# Base Packages
+# Basic Packages
 arch-install-scripts
 b43-fwcutter
 broadcom-wl
@@ -61,6 +61,6 @@ wget
 wvdial
 xl2tpd
 
-# Added
+# Additions
 veracrypt
 networkmanager
