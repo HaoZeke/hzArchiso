@@ -21,8 +21,19 @@ Just cuz I can, this lists the size as I make changes:
 | +reflector         |       695 |
 | +caja              |       707 |
 | +gnome_backgrounds |       732 |
+| release_I          |       894 |
+| +videoDrivers      |       903 |
+
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
 *** Chrony
 This is configured to work with a dispatcher script.
+
+*** AUR
+The aur packages need to be configured in the main hzLinux folder as well as the
+work folder.
+These should work on the system, not relative to the liveUSB root.
+** TODO List
+*** [ ] Add gparted
+*** [ ] Add more docs

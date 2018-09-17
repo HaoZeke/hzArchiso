@@ -2,6 +2,8 @@
 
 set -e -u
 
+USER=hzlinarch
+
 sed -i 's/#\(en_US\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 
@@ -19,9 +21,22 @@ sed -i 's/#\(HandleSuspendKey=\)suspend/\1ignore/' /etc/systemd/logind.conf
 sed -i 's/#\(HandleHibernateKey=\)hibernate/\1ignore/' /etc/systemd/logind.conf
 sed -i 's/#\(HandleLidSwitch=\)suspend/\1ignore/' /etc/systemd/logind.conf
 
+# Make a user
+! id $USER && useradd -m -p "" -g users -G \
+    "video,wheel,adm,audio,floppy,log,network,rfkill,scanner,storage,optical,power,wheel" \
+    -s /usr/bin/zsh $USER
+echo -e "$USER\n$USER" | passwd $USER
+cp -aT /etc/skel/ /home/$USER
+chmod -R 751 /home/$USER
+chown -R $USER /home/$USER
+
 systemctl enable pacman-init.service choose-mirror.service
 
 # Added
-systemctl enable reflector.service NetworkManager.service
+systemctl enable reflector.service \
+    NetworkManager.service \
+    thermald.service \
+    udisks2.service \
+    lightdm.service
 
-systemctl set-default multi-user.target
+systemctl set-default graphical.target
