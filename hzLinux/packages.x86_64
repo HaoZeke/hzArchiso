@@ -64,3 +64,4 @@ xl2tpd
 # Additions
 veracrypt
 networkmanager
+chrony
