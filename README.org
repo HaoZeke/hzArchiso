@@ -34,7 +34,7 @@ This is configured to work with a dispatcher script.
 The aur packages need to be configured in the main hzLinux folder as well as the
 work folder.
 These should work on the system, not relative to the liveUSB root.
-** TODO List
+* TODO List
 *** [X] Add gparted
 *** Add rofi
 *** Add config
