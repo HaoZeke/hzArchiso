@@ -23,6 +23,7 @@ Just cuz I can, this lists the size as I make changes:
 | +gnome_backgrounds |       732 |
 | release_I          |       894 |
 | +videoDrivers      |       903 |
+| release_I-A        |     1.1GB |
 
 ** Configuration
 *** Pacman
@@ -36,8 +37,8 @@ work folder.
 These should work on the system, not relative to the liveUSB root.
 * TODO List
 *** [X] Add gparted
-*** Add rofi
-*** Add config
+*** [ ] Add rofi
+*** [ ] Add config
 *** [ ] Add more docs
 * Release I
 Roughly ~903MB~.
