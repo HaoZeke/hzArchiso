@@ -19,6 +19,7 @@ Just cuz I can, this lists the size as I make changes:
 | +chrony         |       695 |
 | +tmux           |       695 |
 | +reflector      |       695 |
+| +caja           |       707 |
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
