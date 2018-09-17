@@ -1,0 +1,83 @@
+StartFontMetrics 2.0
+Comment UniqueID 4789652
+Comment Panose 2 0 5 4 2 0 0 2 0 4
+FullName HoeflerText-Fleurons
+FontName HoeflerText-Fleurons
+FamilyName HoeflerText
+Weight Fleurons
+Notice Hoefler Text Copr. 1991\3203 The Hoefler Type Foundry, Inc. Under license to Apple Computer, Inc. Not for distribution.
+Version 001.000
+IsFixedPitch false
+ItalicAngle 0.00
+FontBBox -16 -279 1614 816
+Ascender 800
+Descender -200
+XHeight 500
+CapHeight 700
+UnderlinePosition -133
+UnderlineThickness 20
+StdHW 28
+StdVW 28
+EncodingScheme FontSpecific
+StartCharMetrics 59
+C 32 ; WX 500 ; N space ; B 0 0 0 0 ;
+C 33 ; WX 879 ; N exclam ; B 15 -54 878 788 ;
+C 35 ; WX 993 ; N numbersign ; B 55 43 938 722 ;
+C 36 ; WX 850 ; N dollar ; B 90 -6 760 690 ;
+C 37 ; WX 897 ; N percent ; B 30 -38 867 740 ;
+C 38 ; WX 1000 ; N ampersand ; B -16 -216 1016 816 ;
+C 40 ; WX 1000 ; N parenleft ; B -16 -216 1016 816 ;
+C 41 ; WX 1000 ; N parenright ; B -16 -216 1016 816 ;
+C 42 ; WX 1000 ; N asterisk ; B -16 -216 1016 816 ;
+C 45 ; WX 1000 ; N hyphen ; B -7 329 1008 362 ;
+C 48 ; WX 1000 ; N zero ; B 49 -22 989 693 ;
+C 49 ; WX 1102 ; N one ; B 56 -133 1118 594 ;
+C 50 ; WX 1406 ; N two ; B 65 -77 1373 714 ;
+C 51 ; WX 1639 ; N three ; B 70 -22 1579 705 ;
+C 52 ; WX 1102 ; N four ; B 56 -133 1118 594 ;
+C 53 ; WX 1406 ; N five ; B 65 -77 1373 714 ;
+C 54 ; WX 1639 ; N six ; B 70 -22 1579 705 ;
+C 55 ; WX 1562 ; N seven ; B -7 274 1569 417 ;
+C 56 ; WX 1562 ; N eight ; B -7 302 1569 389 ;
+C 57 ; WX 1562 ; N nine ; B -7 299 1569 393 ;
+C 60 ; WX 1614 ; N less ; B 0 -279 1614 721 ;
+C 62 ; WX 1614 ; N greater ; B 0 -279 1614 721 ;
+C 64 ; WX 706 ; N at ; B 47 -22 684 705 ;
+C 65 ; WX 1000 ; N A ; B -14 -214 1014 800 ;
+C 66 ; WX 1000 ; N B ; B -8 -214 1020 800 ;
+C 67 ; WX 1000 ; N C ; B -14 -200 1014 814 ;
+C 68 ; WX 1000 ; N D ; B -8 -200 1020 814 ;
+C 69 ; WX 1000 ; N E ; B 0 -221 1014 807 ;
+C 70 ; WX 1000 ; N F ; B -14 -221 1000 807 ;
+C 71 ; WX 1000 ; N G ; B 0 -220 1014 808 ;
+C 72 ; WX 1000 ; N H ; B -14 -220 1000 808 ;
+C 73 ; WX 1000 ; N I ; B -8 -214 1014 800 ;
+C 74 ; WX 1000 ; N J ; B -14 -214 1008 800 ;
+C 75 ; WX 1000 ; N K ; B -8 -200 1014 814 ;
+C 76 ; WX 1000 ; N L ; B -14 -200 1008 814 ;
+C 77 ; WX 1000 ; N M ; B 0 -208 1014 814 ;
+C 78 ; WX 1000 ; N N ; B -14 -208 1000 814 ;
+C 79 ; WX 1000 ; N O ; B 0 -214 1014 808 ;
+C 80 ; WX 1000 ; N P ; B -14 -214 1000 808 ;
+C 91 ; WX 526 ; N bracketleft ; B 23 -144 487 718 ;
+C 93 ; WX 526 ; N bracketright ; B 39 -144 503 718 ;
+C 97 ; WX 1000 ; N a ; B -13 -214 1014 800 ;
+C 98 ; WX 1000 ; N b ; B -14 -214 1013 800 ;
+C 99 ; WX 1000 ; N c ; B -13 -200 1014 814 ;
+C 100 ; WX 1000 ; N d ; B -14 -200 1013 814 ;
+C 101 ; WX 1000 ; N e ; B 0 -213 1014 814 ;
+C 102 ; WX 1000 ; N f ; B -14 -213 1000 814 ;
+C 103 ; WX 1000 ; N g ; B 0 -213 1014 814 ;
+C 104 ; WX 1000 ; N h ; B -14 -213 1000 814 ;
+C 105 ; WX 1000 ; N i ; B -8 -214 1014 800 ;
+C 106 ; WX 1000 ; N j ; B -14 -214 1008 800 ;
+C 107 ; WX 1000 ; N k ; B -8 -200 1014 814 ;
+C 108 ; WX 1000 ; N l ; B -14 -200 1008 814 ;
+C 109 ; WX 1000 ; N m ; B 0 -208 1014 814 ;
+C 110 ; WX 1000 ; N n ; B -14 -208 1000 814 ;
+C 111 ; WX 1000 ; N o ; B 0 -214 1014 808 ;
+C 112 ; WX 1000 ; N p ; B -14 -214 1000 808 ;
+C 182 ; WX 771 ; N paragraph ; B 45 -21 771 705 ;
+C -1 ; WX 899 ; N apple ; B 100 0 799 684 ;
+EndCharMetrics
+EndFontMetrics
