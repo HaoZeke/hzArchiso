@@ -16,6 +16,9 @@ Just cuz I can, this lists the size as I make changes:
 | base            |     ~ 567 |
 | +veracrypt      |       688 |
 | +networkmanager |       695 |
+| +chrony         |       695 |
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
+*** Chrony
+This is configured to work with a dispatcher script.
