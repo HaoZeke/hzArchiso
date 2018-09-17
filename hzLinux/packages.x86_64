@@ -61,7 +61,6 @@ xl2tpd
 
 # Additions
 veracrypt
-networkmanager
 chrony
 tmux
 reflector
@@ -81,9 +80,39 @@ sudo
 refind-efi
 polkit
 lxsession
-pulseaudio
 gperf
 gparted
+
+# Networking
+blueberry
+networkmanager
+
+# PDF Tools
+zathura-ps
+zathura-pdf-poppler
+zathura-djvu
+zathura-cb
+zathura
+
+# Video
+smplayer
+smplayer-skins
+
+# Audio
+pulseaudio
+pavucontrol
+pulseaudio-alsa
+pulseaudio-bluetooth
+
+# Music
+mpd
+ncmpc
+pianobar
+proxychains-ng
+audacious
+
+# Browser
+falkon
 
 # Video Drivers [x11]
 xf86-video-intel
@@ -100,6 +129,7 @@ xorg-server
 xorg-xauth
 
 # AUR [Local]
+windscribe-cli
 yay
 dotgit
 lightdm-webkit2-greeter
@@ -110,3 +140,6 @@ wlroots-git
 sway-wlroots-git
 xcb-util-errors
 termite-nocsd
+i3status-rust-git
+slurp-git
+grim-git

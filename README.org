@@ -38,6 +38,7 @@ These should work on the system, not relative to the liveUSB root.
 *** [ ] Add gparted
 *** [ ] Add more docs
 * Release I
+Roughly ~903MB~.
 ** Features
 - LightDM + Aether Theme
 - Default user (hzlinarch:hzlinarh)
@@ -45,3 +46,18 @@ These should work on the system, not relative to the liveUSB root.
 - Sway (master, wlroots)
 - Caja
 - Termite (noscd, wayland)
+- Veracrypt
+- gParted
+
+* Release I-A
+Around *1.1GB*.
+** Features
+- Fonts
+- i3status-rust
+- Smplayer (+skins)
+- Zathura (+plugins)
+- Audio (pulseaudio+plugins)
+- Music (mpd, ncmpc, pianobar, audacious)
+- Proxy (proxychains, windscribe)
+- Screenshots (slurp+grim)
+- Bluetooth (blueberry)
