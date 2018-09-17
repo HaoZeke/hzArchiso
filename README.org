@@ -37,3 +37,11 @@ These should work on the system, not relative to the liveUSB root.
 ** TODO List
 *** [ ] Add gparted
 *** [ ] Add more docs
+* Release I
+** Features
+- LightDM + Aether Theme
+- Default user (hzlinarch:hzlinarh)
+- AUR helper (yay)
+- Sway (master, wlroots)
+- Caja
+- Termite (noscd, wayland)
