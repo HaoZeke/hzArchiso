@@ -17,6 +17,8 @@ Just cuz I can, this lists the size as I make changes:
 | +veracrypt      |       688 |
 | +networkmanager |       695 |
 | +chrony         |       695 |
+| +tmux           |       695 |
+| +reflector      |       695 |
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
