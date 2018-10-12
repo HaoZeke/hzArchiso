@@ -64,7 +64,6 @@ veracrypt
 chrony
 tmux
 reflector
-caja
 gnome-backgrounds
 lightdm
 accountsservice
@@ -86,6 +85,11 @@ gparted
 # Networking
 blueberry
 networkmanager
+mosh
+
+# Navigation
+caja
+rofi
 
 # PDF Tools
 zathura-ps
@@ -143,3 +147,7 @@ termite-nocsd
 i3status-rust-git
 slurp-git
 grim-git
+enpass-bin
+# Helpers
+ananicy-git
+brightnessctl
