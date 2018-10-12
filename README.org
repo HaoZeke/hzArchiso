@@ -61,12 +61,14 @@ Around *1.1GB*.
 - Screenshots (slurp+grim)
 - Bluetooth (blueberry)
 * Release II
+Until further changes, the zsh prompt now matches the one used by the standard iso.
 ** Features
 - Enpass
 - Rofi
 - Mosh
 - Ananicy (auto-nice daemon)
 - Backlight Controls (brightnessctl)
+- Better default zsh stuff (grml-zsh-config)
 ** Fixes
 - Fix terminal audio [pianobar]
 - Fix chrony config

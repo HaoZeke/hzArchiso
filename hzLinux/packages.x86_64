@@ -81,6 +81,7 @@ polkit
 lxsession
 gperf
 gparted
+grml-zsh-config
 
 # Networking
 blueberry
