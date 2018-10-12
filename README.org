@@ -22,6 +22,7 @@ Just cuz I can, this lists the size as I make changes:
 | release_I          |       894 |
 | +videoDrivers      |       903 |
 | release_I-A        |     1.1GB |
+| release_II         |     1.2GB |
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
