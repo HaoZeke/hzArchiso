@@ -1,11 +1,9 @@
 * About
 This is a custom archlinux live-usb mainly meant for setting up encrypted
 installations. This uses [[swaywm.org/][sway]] and [[https://github.com/thestinger/termite][termite]], for maximum cross compatibility.
-
 ** Methodology
 Instead of using the standard ~archiso~ package, since I required AUR packages
 and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]].
-
 ** Software Included
 The exact list of packages added is present in ~packages.x86_64~
 The basic end-user packages and the intended usage is described here.
@@ -24,13 +22,11 @@ Just cuz I can, this lists the size as I make changes:
 | release_I          |       894 |
 | +videoDrivers      |       903 |
 | release_I-A        |     1.1GB |
-
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
 *** Chrony
 This is configured to work with a dispatcher script.
-
 *** AUR
 The aur packages need to be configured in the main hzLinux folder as well as the
 work folder.
@@ -51,7 +47,6 @@ Roughly ~903MB~.
 - Termite (noscd, wayland)
 - Veracrypt
 - gParted
-
 * Release I-A
 Around *1.1GB*.
 ** Features
@@ -64,3 +59,32 @@ Around *1.1GB*.
 - Proxy (proxychains, windscribe)
 - Screenshots (slurp+grim)
 - Bluetooth (blueberry)
+* Release II
+** Features
+- Enpass
+- Rofi
+- Mosh
+- Ananicy (auto-nice daemon)
+- Backlight Controls (brightnessctl)
+** Fixes
+- Fix terminal audio [pianobar]
+- Fix chrony config
+- Sudo (wheel executes whatever now)
+*** Notes
+#+BEGIN_SRC bash
+sudo rsync -axv --progress / /mnt
+sudo cp -vaT /run/archiso/bootmnt/arch/boot/$(uname -m)/vmlinuz /mnt/boot/vmlinuz-linux\n
+   1  userdel hzlinarch
+    2  sed -i 's/Storage=volatile/#Storage=auto/' /etc/systemd/journald.conf
+    3  rm /etc/udev/rules.d/81-dhcpcd.rules
+    4  systemctl disable pacman-init.service choose-mirror.service
+    5  rm -r /etc/systemd/system/{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
+    6  rm /etc/systemd/scripts/choose-mirror
+    7  rm /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    8  rm /root/{.automated_script.sh,.zlogin}
+    9  rm /etc/mkinitcpio-archiso.conf
+   10  rm -r /etc/initcpio
+   11  pacman-key --init
+   12  pacman-key --populate archlinux
+   13  rm -rf /etc/skel/
+#+END_SRC
