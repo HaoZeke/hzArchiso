@@ -92,6 +92,7 @@ networkmanager
 # Navigation
 caja
 rofi
+rofi-calc
 
 # PDF Tools
 zathura
