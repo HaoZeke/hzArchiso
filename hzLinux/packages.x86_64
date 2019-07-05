@@ -155,8 +155,10 @@ windscribe-cli
 wlroots-git
 xcb-util-errors
 yay
+
 # Helpers
 ananicy-git
+nitrogen
 
 # Local Variables:
 # mode: conf
