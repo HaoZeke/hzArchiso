@@ -99,7 +99,7 @@ sudo cp -vaT /run/archiso/bootmnt/arch/boot/$(uname -m)/vmlinuz /mnt/boot/vmlinu
 * Release III
 The one with ~i3~, and offline installation.
 ** Features
-- Offline installation thanks to [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]].
+- Offline installation thanks via the wiki (~$HOME/offlineInst.sh~).
 - ~light~ for brightness
 - ~teiler~ for screenshots
 - Initialize with [[https://github.com/HaoZeke/Dotfiles][my dotfiles]] (via script ~$HOME/initDots.sh~)
