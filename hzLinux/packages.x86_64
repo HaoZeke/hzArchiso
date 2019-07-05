@@ -138,6 +138,7 @@ xorg-xauth
 # DM
 i3-gaps
 i3lock
+dunst
 
 # AUR [Local]
 dotgit
