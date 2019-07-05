@@ -100,3 +100,6 @@ sudo cp -vaT /run/archiso/bootmnt/arch/boot/$(uname -m)/vmlinuz /mnt/boot/vmlinu
 The one with ~i3~.
 ** Features
 - ~light~ for brightness
+- ~teiler~ for screenshots
+- Initialize with [[https://github.com/HaoZeke/Dotfiles][my dotfiles]] (via script ~$HOME/initDots.sh~)
+- ~i3-gaps~ and related configuration
