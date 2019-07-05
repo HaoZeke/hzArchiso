@@ -6,7 +6,9 @@ USERNAME=PASSWORD
 #+END_QUOTE
 ** Methodology
 Instead of using the standard ~archiso~ package, since I required AUR packages
-and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]].
+and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]]. Additionally,
+the AUR packages are handled with the excellent [[https://github.com/cassava/repoctl][repoctl]]. More details in a post
+soon.
 ** Software Included
 The exact list of packages added is present in ~packages.x86_64~
 The basic end-user packages and the intended usage is described here.
