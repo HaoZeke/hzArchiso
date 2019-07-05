@@ -94,3 +94,7 @@ sudo cp -vaT /run/archiso/bootmnt/arch/boot/$(uname -m)/vmlinuz /mnt/boot/vmlinu
    12  pacman-key --populate archlinux
    13  rm -rf /etc/skel/
 #+END_SRC
+* Release III
+The one with ~i3~.
+** Features
+- ~light~ for brightness

@@ -82,6 +82,7 @@ lxsession
 gperf
 gparted
 grml-zsh-config
+light
 
 # Networking
 blueberry
@@ -133,6 +134,9 @@ xorg-server-xwayland
 xorg-server
 xorg-xauth
 
+# DM
+i3
+
 # AUR [Local]
 windscribe-cli
 yay
@@ -151,4 +155,7 @@ grim-git
 enpass-bin
 # Helpers
 ananicy-git
-brightnessctl
+
+# Local Variables:
+# mode: conf
+# End:
