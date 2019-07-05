@@ -61,7 +61,7 @@ xl2tpd
 
 # Additions
 accountsservice
-aria2c
+aria2
 chrony
 emacs
 git
@@ -78,7 +78,6 @@ polkit
 refind-efi
 reflector
 sudo
-thermald
 tmux
 udiskie
 udisks2
@@ -150,6 +149,7 @@ networkmanager-dispatcher-chrony
 slurp-git
 sway-wlroots-git
 termite-nocsd
+thermald
 ttf-opensans
 windscribe-cli
 wlroots-git
