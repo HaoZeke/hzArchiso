@@ -60,99 +60,101 @@ wvdial
 xl2tpd
 
 # Additions
-veracrypt
-chrony
-tmux
-reflector
-gnome-backgrounds
-lightdm
 accountsservice
-git
+aria2c
+chrony
 emacs
-neovim
-thermald
-udisks2
-udiskie
-lightdm
-zsh
-sudo
-refind-efi
-polkit
-lxsession
-gperf
+git
+gnome-backgrounds
 gparted
+gperf
 grml-zsh-config
 light
+lightdm
+lightdm
+lxsession
+neovim
+polkit
+refind-efi
+reflector
+sudo
+thermald
+tmux
+udiskie
+udisks2
+veracrypt
+zsh
 
 # Networking
 blueberry
-networkmanager
 mosh
+networkmanager
 
 # Navigation
 caja
 rofi
 
 # PDF Tools
-zathura-ps
-zathura-pdf-poppler
-zathura-djvu
-zathura-cb
 zathura
+zathura-cb
+zathura-djvu
+zathura-pdf-poppler
+zathura-ps
 
 # Video
 smplayer
 smplayer-skins
 
 # Audio
-pulseaudio
 pavucontrol
+pulseaudio
 pulseaudio-alsa
 pulseaudio-bluetooth
 
 # Music
+audacious
 mpd
 ncmpc
 pianobar
 proxychains-ng
-audacious
 
 # Browser
 falkon
 
 # Video Drivers [x11]
-xf86-video-intel
-xf86-video-nouveau
 xf86-video-amdgpu
 xf86-video-ati
+xf86-video-intel
+xf86-video-nouveau
 # OpenGL
-vulkan-intel
 mesa
+vulkan-intel
 
 # Xorg
-xorg-server-xwayland
 xorg-server
+xorg-server-xwayland
 xorg-xauth
 
 # DM
-i3
+i3-gaps
+i3lock
 
 # AUR [Local]
-windscribe-cli
-yay
 dotgit
-lightdm-webkit2-greeter
-ttf-opensans
-lightdm-webkit-theme-aether
-networkmanager-dispatcher-chrony
-wlroots-git
-sway-wlroots-git
-xcb-util-errors
-termite-nocsd
-i3status-rust-git
-slurp-git
-grim-git
 enpass-bin
+grim-git
+i3status-rust-git
+lightdm-webkit-theme-aether
+lightdm-webkit2-greeter
+networkmanager-dispatcher-chrony
+slurp-git
+sway-wlroots-git
+termite-nocsd
+ttf-opensans
+windscribe-cli
+wlroots-git
+xcb-util-errors
+yay
 # Helpers
 ananicy-git
 
