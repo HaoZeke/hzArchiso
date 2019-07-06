@@ -106,3 +106,5 @@ The one with ~i3~, and offline installation.
 - Initialize with [[https://github.com/HaoZeke/Dotfiles][my dotfiles]] (via script ~$HOME/initDots.sh~)
 - ~i3-gaps~ and related configuration
 - ~nitrogen~ for wallpaper management
+** Fixes
+- ~rofi~ now works
