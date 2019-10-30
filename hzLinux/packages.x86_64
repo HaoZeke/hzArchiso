@@ -188,6 +188,14 @@ proxychains-ng
 ananicy-git
 nitrogen
 
+# Dependencies
+## teiler
+xininfo-git
+## blockify
+spotify
+## gnome-encfs-manager-bin
+libgee06
+
 # Local Variables:
 # mode: conf
 # End:
