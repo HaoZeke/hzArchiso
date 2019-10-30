@@ -121,9 +121,18 @@ The one with ~i3~, and offline installation.
 ** Features
 - Offline installation thanks via the wiki (~$HOME/offlineInst.sh~).
 - ~light~ for brightness
-- ~teiler~ for screenshots
 - Initialize with [[https://github.com/HaoZeke/Dotfiles][my dotfiles]] (via script ~$HOME/initDots.sh~)
 - ~i3-gaps~ and related configuration
 - ~nitrogen~ for wallpaper management
 ** Fixes
 - ~rofi~ now works
+* Release IV
+The one with more packages I use, mostly messaging and encryption.
+** Features
+- ~veracrypt~, ~cryptomator~, ~gnome-encfs-manager~ for cryptography
+- ~telegram-desktop~, ~pidgin~ for my communication needs
+- ~spotify~, ~pcloud~ for my cloud needs
+- ~cronie~, ~unison~ for synchronization
+- ~flameshot~, ~teiler-git~ for screenshots
+** Misc
+- ~termite-nocsd~ -> ~termite~ since it breaks less
