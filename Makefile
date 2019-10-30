@@ -12,7 +12,8 @@ buildDir=hzLinux
 
 application="HaoZeke's ArchLinux"
 isoName='hzlinux'
-label='HZLIN_201907'
+# name_ver-ddmmyy
+label='HZLIN_III-301019'
 publisher='Rohit Goswami (HaoZeke) <rohit.goswami[at]aol.com>'
 
 
