@@ -3,28 +3,28 @@
 ################################################################################
 
 # With:       reflector --latest 30 --number 20 --sort rate --protocol http --save /home/haozeke/Git/Github/Linux/ArchLinux/hzArchiso/hzLinux/airootfs/etc/pacman.d/mirrorlist
-# When:       2019-07-05 19:24:52 UTC
+# When:       2019-10-30 16:06:08 UTC
 # From:       https://www.archlinux.org/mirrors/status/json/
-# Retrieved:  2019-07-05 19:24:41 UTC
-# Last Check: 2019-07-05 19:20:43 UTC
+# Retrieved:  2019-10-30 16:05:55 UTC
+# Last Check: 2019-10-30 16:00:29 UTC
 
-Server = http://mirror.lty.me/archlinux/$repo/os/$arch
-Server = http://ftp.snt.utwente.nl/pub/os/linux/archlinux/$repo/os/$arch
-Server = http://ftp.sh.cvut.cz/arch/$repo/os/$arch
-Server = http://mirrors.neusoft.edu.cn/archlinux/$repo/os/$arch
-Server = http://mirror.cyberbits.eu/archlinux/$repo/os/$arch
-Server = http://mirror.sfo12.us.leaseweb.net/archlinux/$repo/os/$arch
-Server = http://mirror.orbit-os.com/archlinux/$repo/os/$arch
-Server = http://mirrors.uni-plovdiv.net/archlinux/$repo/os/$arch
-Server = http://archlinux.za.mirror.allworldit.com/archlinux/$repo/os/$arch
-Server = http://mirror.ubrco.de/archlinux/$repo/os/$arch
-Server = http://mirror.dkm.cz/archlinux/$repo/os/$arch
-Server = http://archlinux.mailtunnel.eu/$repo/os/$arch
-Server = http://gluttony.sin.cvut.cz/arch/$repo/os/$arch
-Server = http://mirror.wdc1.us.leaseweb.net/archlinux/$repo/os/$arch
-Server = http://mirror.mia11.us.leaseweb.net/archlinux/$repo/os/$arch
-Server = http://mirror.dc02.hackingand.coffee/arch/$repo/os/$arch
-Server = http://arch.mirror.constant.com/$repo/os/$arch
-Server = http://archlinux.uk.mirror.allworldit.com/archlinux/$repo/os/$arch
-Server = http://mirrors.n-ix.net/archlinux/$repo/os/$arch
+Server = http://mirror.xtom.com.hk/archlinux/$repo/os/$arch
+Server = http://mirror.oldsql.cc/archlinux/$repo/os/$arch
+Server = http://ftp.myrveln.se/pub/linux/archlinux/$repo/os/$arch
 Server = http://mirror.csclub.uwaterloo.ca/archlinux/$repo/os/$arch
+Server = http://mirror.lty.me/archlinux/$repo/os/$arch
+Server = http://mirror.xeonbd.com/archlinux/$repo/os/$arch
+Server = http://mirrors.ims.nksc.lt/archlinux/$repo/os/$arch
+Server = http://quantum-mirror.hu/mirrors/pub/archlinux/$repo/os/$arch
+Server = http://mirror.wtnet.de/arch/$repo/os/$arch
+Server = http://mirrors.kurnode.com/archlinux/$repo/os/$arch
+Server = http://archlinux.thaller.ws/$repo/os/$arch
+Server = http://mirror.bytemark.co.uk/archlinux/$repo/os/$arch
+Server = http://archlinux.za.mirror.allworldit.com/archlinux/$repo/os/$arch
+Server = http://mirror.sergal.org/archlinux/$repo/os/$arch
+Server = http://mirror.cyberbits.eu/archlinux/$repo/os/$arch
+Server = http://super.quantum-mirror.hu/mirrors/pub/archlinux/$repo/os/$arch
+Server = http://ftp.rnl.tecnico.ulisboa.pt/pub/archlinux/$repo/os/$arch
+Server = http://iad.mirrors.misaka.one/archlinux/$repo/os/$arch
+Server = http://mirror.orbit-os.com/archlinux/$repo/os/$arch
+Server = http://mirror.chaoticum.net/arch/$repo/os/$arch
