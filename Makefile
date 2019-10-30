@@ -11,9 +11,9 @@ buildDir=hzLinux
 # Build Variables
 
 application="HaoZeke's ArchLinux"
-isoName='hzlinux'
+isoName='hzlinux_IV'
 # name_ver-ddmmyy
-label='HZLIN_III-301019'
+label='HZLIN_IV-311019'
 publisher='Rohit Goswami (HaoZeke) <rohit.goswami[at]aol.com>'
 
 
