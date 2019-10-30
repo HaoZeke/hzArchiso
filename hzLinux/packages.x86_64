@@ -116,10 +116,33 @@ audacious
 mpd
 ncmpc
 pianobar
-proxychains-ng
+blockify
+
+# Cloud Management
+rclone
+pcloud-drive
+
+# Messaging
+telegram-desktop
+
+# Synchronization
+cronie
+unison
+
+# Encryption
+veracrypt
+cryptomator
+gnome-encfs-manager-bin
+
+# Screenshots
+teiler-git
+flameshot
 
 # Browser
 falkon
+
+# Terminal
+termite
 
 # Video Drivers [x11]
 xf86-video-amdgpu
@@ -153,10 +176,13 @@ sway-wlroots-git
 termite-nocsd
 thermald
 ttf-opensans
-windscribe-cli
 wlroots-git
 xcb-util-errors
 yay
+
+# Privacy
+windscribe-cli
+proxychains-ng
 
 # Helpers
 ananicy-git
