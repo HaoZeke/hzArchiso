@@ -9,6 +9,10 @@ Instead of using the standard ~archiso~ package, since I required AUR packages
 and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]]. Additionally,
 the AUR packages are handled with the excellent [[https://github.com/cassava/repoctl][repoctl]]. More details in a post
 soon.
+#+begin_quote
+As of V, now uses the normal ~archiso~
+#+end_quote
+
 ** Software Included
 The exact list of packages added is present in ~packages.x86_64~
 The basic end-user packages and the intended usage is described here.
@@ -29,6 +33,7 @@ Just cuz I can, this lists the size as I make changes:
 | release_I-A        |     1.1GB |
 | release_II         |     1.2GB |
 | release_III        |     1.2GB |
+| release_V          |     1.6GB |
 ** Configuration
 *** Pacman
 The pacman mirrors are generated with ~reflector~.
@@ -43,9 +48,19 @@ These should work on the system, not relative to the liveUSB root.
 In general, to simply update the AUR packages before using the ~Makefile~ just
 run the following:
 #+BEGIN_SRC bash
+## Once
+repoctl conf new ~/pkgs/hzarchiso.db
+repoctl reset
+## Separate terminal
+repoctl serve
+## Everytime
 mkdir tmpUpd && cd tmpUpd
-repoctl down -u
-for dir in *; do cd $dir; makepkg -cs && repoctl add *.pkg.tar.xz && cd ../  && rm -rf $dir || cd ../; done
+for pkg in $(cat ../aurpkgs.txt); do
+    (
+        repoctl down "$pkg"
+    )
+done
+for dir in *; do cd $dir; makepkg -cs && repoctl add *.pkg.tar.zst && cd ../  && rm -rf $dir || cd ../; done
 cd ../ && rm -rf tmpUpd
 #+END_SRC
 ** Mirrorlist
@@ -57,6 +72,15 @@ sudo reflector --latest 30 --number 20 --sort rate --protocol http --save $build
 #+END_SRC
 Do not be surprised by ~sudo~, since the location has the same permissions as
 the actual root folder.
+** Build
+The ~makefile~ is not needed anymore, as of version 5.
+#+begin_src bash
+export application="HaoZeke's ArchLinux"
+export isoName='hzlinux_V'
+export label='HZLIN_V-211222'
+export publisher='Rohit Goswami (HaoZeke) <rohit.goswami[at]aol.com>'
+sudo mkarchiso -A $application -L $label -P $publisher -v hzLinux
+#+end_src
 * TODO List
 *** [X] Add gparted
 *** [ ] Add rofi
@@ -136,3 +160,5 @@ The one with more packages I use, mostly messaging and encryption.
 - ~flameshot~, ~teiler-git~ for screenshots
 ** Misc
 - ~termite-nocsd~ -> ~termite~ since it breaks less
+* Release V
+Updated to the standard ~archiso~
