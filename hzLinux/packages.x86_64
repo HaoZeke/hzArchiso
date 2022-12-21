@@ -8,6 +8,7 @@ crda
 darkhttpd
 ddrescue
 dhclient
+dkms
 dmraid
 dnsmasq
 dnsutils
@@ -26,7 +27,10 @@ ipw2100-fw
 ipw2200-fw
 irssi
 lftp
+linux
 linux-atm
+linux-headers
+lightdm-webkit2-greeter
 lsscsi
 mc
 mtools
@@ -44,7 +48,7 @@ parted
 partimage
 ppp
 pptpclient
-refind-efi
+refind
 rp-pppoe
 rsync
 sdparm
@@ -58,11 +62,14 @@ vpnc
 wget
 wvdial
 xl2tpd
+xcb-util-errors
 
 # Additions
 accountsservice
+age
 aria2
 chrony
+chezmoi
 emacs
 git
 gnome-backgrounds
@@ -75,10 +82,14 @@ lightdm
 lxsession
 neovim
 polkit
-refind-efi
 reflector
-sudo
+sway
+swayidle
+swayimg
+waybar
+thermald
 tmux
+ttf-opensans
 udiskie
 udisks2
 veracrypt
@@ -88,6 +99,7 @@ zsh
 blueberry
 mosh
 networkmanager
+iwd
 
 # Navigation
 caja
@@ -142,7 +154,8 @@ flameshot
 falkon
 
 # Terminal
-termite
+foot
+foot-terminfo
 
 # Video Drivers [x11]
 xf86-video-amdgpu
@@ -164,20 +177,18 @@ i3lock
 dunst
 
 # AUR [Local]
-dotgit
+rtl88xxau-aircrack-dkms-git
 enpass-bin
 grim-git
 i3status-rust-git
 lightdm-webkit-theme-aether
-lightdm-webkit2-greeter
 networkmanager-dispatcher-chrony
 slurp-git
-sway-wlroots-git
+swaybg-git
+swaylock-effects
 termite-nocsd
 thermald
-ttf-opensans
 wlroots-git
-xcb-util-errors
 yay
 
 # Privacy

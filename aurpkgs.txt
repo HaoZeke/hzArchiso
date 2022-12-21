@@ -1,0 +1,13 @@
+rtl88xxau-aircrack-dkms-git
+enpass-bin
+grim-git
+i3status-rust-git
+lightdm-webkit-theme-aether
+networkmanager-dispatcher-chrony
+slurp-git
+swaybg-git
+swaylock-effects
+termite-nocsd
+thermald
+wlroots-git
+yay
