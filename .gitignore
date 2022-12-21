@@ -1,2 +1,3 @@
-hzLinux/out/*
-hzLinux/work/*
+out/
+work/
+tmpUpd/

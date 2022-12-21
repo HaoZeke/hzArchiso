@@ -212,7 +212,6 @@ unison
 # Encryption
 veracrypt
 cryptomator
-gnome-encfs-manager-bin
 
 # Screenshots
 teiler-git
@@ -265,7 +264,9 @@ ananicy
 nitrogen
 
 # Dependencies
+## teiler
 xininfo-git
+## gnome-encfs-manager-bin
 
 # Local Variables:
 # mode: conf
