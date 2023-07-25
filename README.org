@@ -49,7 +49,7 @@ In general, to simply update the AUR packages before using the ~Makefile~ just
 run the following:
 #+BEGIN_SRC bash
 ## Once
-repoctl conf new ~/pkgs/hzarchiso.db
+repoctl conf new ~/pkgs/hzarchiso.db.tar.gz
 repoctl reset
 ## Separate terminal
 repoctl serve
