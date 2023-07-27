@@ -2,8 +2,12 @@
 This is a custom archlinux live-usb mainly meant for setting up encrypted
 installations. This uses [[swaywm.org/][sway]] and [[https://github.com/thestinger/termite][termite]], for maximum cross compatibility.
 #+BEGIN_QUOTE
-USERNAME=PASSWORD
+hzlinarch=hzlinarch
+^-- USERNAME=PASSWORD
 #+END_QUOTE
+
+Note that on some systems, the login manager may be buggy, in these cases switch to a TTY with ~CTRL-ALT-F3~, login at the terminal, and run ~sway~ to get to a GUI.
+
 ** Methodology
 Instead of using the standard ~archiso~ package, since I required AUR packages
 and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]]. Additionally,
