@@ -34,9 +34,11 @@ Just cuz I can, this lists the size as I make changes:
 | release_II         |     1.2GB |
 | release_III        |     1.2GB |
 | release_V          |     1.6GB |
+| release_V.I        |     1.7GB |
 ** Configuration
 *** Pacman
-The pacman mirrors are generated with ~reflector~.
+The pacman mirrors are generated with ~reflector~, but ~reflector~ is
+not installed on the installation media.
 *** Chrony
 This is configured to work with a dispatcher script.
 *** AUR
@@ -161,4 +163,11 @@ The one with more packages I use, mostly messaging and encryption.
 ** Misc
 - ~termite-nocsd~ -> ~termite~ since it breaks less
 * Release V
-Updated to the standard ~archiso~
+Updated to the standard ~archiso~.
+** Release V.I
+- Included ~amd-ucode~ and ~intel-ucode~
+- Removed ~reflector~
+- Updated the mirrorlist
+- Uses a *patched* linux-nitrous kernel for working with the network drivers on
+  newer X1 Carbon machines (see [details here](https://bbs.archlinux.org/viewtopic.php?pid=2105297#p2105297))
+- Size is now ~ 2.0GB

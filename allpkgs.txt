@@ -52,11 +52,9 @@ lftp
 libfido2
 libusb-compat
 lightdm-webkit2-greeter
-linux
 linux-atm
 linux-firmware
 linux-firmware-marvell
-linux-headers
 livecd-sounds
 lsscsi
 lvm2
@@ -93,7 +91,6 @@ pptpclient
 pv
 qemu-guest-agent
 refind
-reflector
 reiserfsprogs
 rp-pppoe
 rp-pppoe
@@ -151,7 +148,6 @@ lightdm
 lxsession
 neovim
 polkit
-reflector
 sway
 swayidle
 swayimg

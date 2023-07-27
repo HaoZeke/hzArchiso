@@ -1,2 +1,4 @@
 arch-install-scripts
 base
+amd-ucode
+intel-ucode
