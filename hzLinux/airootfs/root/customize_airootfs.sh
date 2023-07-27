@@ -33,8 +33,7 @@ chown -R $USER /home/$USER
 systemctl enable pacman-init.service choose-mirror.service
 
 # Added
-systemctl enable reflector.service \
-    ananicy.service \
+systemctl enable ananicy.service \
     NetworkManager.service \
     thermald.service \
     udisks2.service \
