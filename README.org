@@ -3,6 +3,7 @@ This is a custom archlinux live-usb mainly meant for setting up encrypted
 installations. This uses [[swaywm.org/][sway]] and [[https://github.com/thestinger/termite][termite]], for maximum cross compatibility.
 #+BEGIN_QUOTE
 hzlinarch=hzlinarch
+
 ^-- USERNAME=PASSWORD
 #+END_QUOTE
 
