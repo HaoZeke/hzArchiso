@@ -86,14 +86,37 @@ confirmation, root/user passwords, and a disk encryption password.
 Build and validation should run on an Arch builder or in an Arch container:
 
 #+begin_src bash
+sudo install -d -o "$(id -u)" -g "$(id -g)" /repo/hzarchiso
+HZARCHISO_INSTALL_BUILT=1 make aur-repo
 make tui-check
 make check
+make repo-check
+make build
+#+end_src
+
+The ~aur-repo~ target builds package bases from AUR metadata, adds direct-clone
+legacy AUR bases when the RPC result is unavailable, copies packages supplied by
+~HZARCHISO_PREBUILT_DIR~, and writes a pacman repository named ~hzarchiso~. The
+~build~ target verifies that this repository contains every package in
+~aurpkgs.txt~ before running ~mkarchiso~.
+
+Containerized builds need a writable ~/repo/hzarchiso~ and a non-root user for
+~makepkg~:
+
+#+begin_src bash
 docker run --rm --privileged \
   -v "$PWD:/work" \
-  -v /path/to/hzarchiso-repo:/repo/hzarchiso:ro \
+  -v /path/to/hzarchiso-repo:/repo/hzarchiso \
   -w /work \
   archlinux:base-devel \
-  bash -lc 'pacman -Sy --noconfirm archiso go jq make && make build'
+  bash -lc '
+    pacman -Sy --noconfirm archiso base-devel go jq make sudo
+    useradd -m builder
+    printf "builder ALL=(ALL) NOPASSWD: ALL\n" >/etc/sudoers.d/builder
+    chown -R builder:builder /repo/hzarchiso
+    sudo -u builder HZARCHISO_INSTALL_BUILT=1 make aur-repo
+    make build
+  '
 #+end_src
 
 The ~build~ target compiles ~hz-install-tui~ into

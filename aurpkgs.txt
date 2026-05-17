@@ -14,7 +14,7 @@ rtl88xxau-aircrack-dkms-git
 slurp-git
 swaybg-git
 swaylock-effects
-teiler-git
 xininfo-git
+teiler-git
 windscribe-cli
 yay

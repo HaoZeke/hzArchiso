@@ -11,12 +11,24 @@ workDir=work
 outDir=out
 installerDir=installer/hz-install-tui
 tuiBin=$(buildDir)/airootfs/usr/local/bin/hz-install-tui
+repoDir=/repo/hzarchiso
 
 
 .PHONY: check
 check:
 	./scripts/hzarchiso-profile-check $(buildDir)
 	./scripts/hzarchiso-usability-selftest $(buildDir)
+	./scripts/hzarchiso-profile-check-selftest
+	./scripts/hzarchiso-aur-repo-check-selftest
+	./scripts/hzarchiso-aur-repo-build-selftest
+
+.PHONY: aur-repo
+aur-repo:
+	./scripts/hzarchiso-aur-repo-build $(repoDir)
+
+.PHONY: repo-check
+repo-check:
+	./scripts/hzarchiso-aur-repo-check $(repoDir) aurpkgs.txt
 
 .PHONY: tui
 tui:
@@ -31,7 +43,7 @@ tui-check: tui-test tui
 	./scripts/hz-install-tui-selftest
 
 .PHONY: build
-build: tui check
+build: tui check repo-check
 	sudo mkarchiso -v -w $(workDir) -o $(outDir) $(buildDir)
 
 .PHONY: install
