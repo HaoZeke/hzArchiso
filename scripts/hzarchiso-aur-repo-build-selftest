@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+builder="${repo_root}/scripts/hzarchiso-aur-repo-build"
+checker="${repo_root}/scripts/hzarchiso-aur-repo-check"
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+write_pkg() {
+    local repo_dir="$1" pkg="$2" version="${3:-1-1}"
+    local pkgdir
+    pkgdir=$(mktemp -d)
+    cat >"${pkgdir}/.PKGINFO" <<EOF
+pkgname = ${pkg}
+pkgver = ${version}
+pkgdesc = test package
+builddate = 1
+packager = hzarchiso selftest
+size = 1
+arch = any
+EOF
+    bsdtar --format=mtree --options='!all,use-set,type,uid,gid,mode,time,size,md5,sha256,link' \
+        -cf "${pkgdir}/.MTREE" -C "$pkgdir" .PKGINFO
+    bsdtar -cf "${repo_dir}/${pkg}-${version}-any.pkg.tar" -C "$pkgdir" .PKGINFO .MTREE
+    rm -rf "$pkgdir"
+}
+
+assert_fails() {
+    local repo_dir="$1" packages_file="$2" prebuilt_dir="$3" pattern="$4"
+    local out
+    if out=$(HZARCHISO_AUR_PACKAGES_FILE="$packages_file" \
+        HZARCHISO_AUR_RPC_FILE="${tmpdir}/aur-rpc.json" \
+        HZARCHISO_PREBUILT_DIR="$prebuilt_dir" \
+        HZARCHISO_BUILD_DIR="${tmpdir}/build-fail" \
+        "$builder" "$repo_dir" 2>&1); then
+        fail "expected build to fail: $pattern"
+    fi
+    grep -q "$pattern" <<<"$out" || fail "missing failure pattern: $pattern"
+}
+
+command -v bsdtar >/dev/null 2>&1 || fail "bsdtar is required"
+command -v repo-add >/dev/null 2>&1 || fail "repo-add is required"
+test -x "$builder" || fail "missing builder: $builder"
+test -x "$checker" || fail "missing checker: $checker"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+fake_bin="${tmpdir}/bin"
+mkdir -p "$fake_bin"
+
+cat >"${fake_bin}/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$1" != clone ]; then
+    printf 'unexpected git invocation: %s\n' "$*" >&2
+    exit 1
+fi
+url="$2"
+dest="$3"
+base=${url##*/}
+base=${base%.git}
+mkdir -p "$dest"
+printf '%s\n' "$base" >"${dest}/.hzarchiso-base"
+printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/git-clones"
+EOF
+chmod +x "${fake_bin}/git"
+
+cat >"${fake_bin}/makepkg" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+base=$(cat .hzarchiso-base)
+printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/makepkg-builds"
+case "$base" in
+    split-base)
+        hzarchiso_write_pkg "$PWD" split-a
+        hzarchiso_write_pkg "$PWD" split-b
+        ;;
+    legacy-local)
+        hzarchiso_write_pkg "$PWD" legacy-local
+        ;;
+    *)
+        hzarchiso_write_pkg "$PWD" "$base"
+        ;;
+esac
+EOF
+chmod +x "${fake_bin}/makepkg"
+
+helper="${tmpdir}/helper.sh"
+cat >"$helper" <<'EOF'
+hzarchiso_write_pkg() {
+    local repo_dir="$1" pkg="$2" version="${3:-1-1}"
+    local pkgdir
+    pkgdir=$(mktemp -d)
+    cat >"${pkgdir}/.PKGINFO" <<PKG
+pkgname = ${pkg}
+pkgver = ${version}
+pkgdesc = test package
+builddate = 1
+packager = hzarchiso selftest
+size = 1
+arch = any
+PKG
+    bsdtar --format=mtree --options='!all,use-set,type,uid,gid,mode,time,size,md5,sha256,link' \
+        -cf "${pkgdir}/.MTREE" -C "$pkgdir" .PKGINFO
+    bsdtar -cf "${repo_dir}/${pkg}-${version}-any.pkg.tar" -C "$pkgdir" .PKGINFO .MTREE
+    rm -rf "$pkgdir"
+}
+EOF
+
+packages_file="${tmpdir}/aurpkgs.txt"
+cat >"$packages_file" <<'EOF'
+split-a
+split-b
+legacy-local
+binary-only
+EOF
+
+cat >"${tmpdir}/aur-rpc.json" <<'EOF'
+{
+  "version": 5,
+  "type": "info",
+  "resultcount": 2,
+  "results": [
+    { "Name": "split-a", "PackageBase": "split-base" },
+    { "Name": "split-b", "PackageBase": "split-base" }
+  ]
+}
+EOF
+
+prebuilt_dir="${tmpdir}/prebuilt"
+repo_dir="${tmpdir}/repo"
+log_dir="${tmpdir}/log"
+mkdir -p "$prebuilt_dir" "$repo_dir" "$log_dir"
+write_pkg "$prebuilt_dir" binary-only
+
+PATH="${fake_bin}:$PATH" \
+BASH_ENV="$helper" \
+HZARCHISO_SELFTEST_LOG="$log_dir" \
+HZARCHISO_AUR_PACKAGES_FILE="$packages_file" \
+HZARCHISO_AUR_RPC_FILE="${tmpdir}/aur-rpc.json" \
+HZARCHISO_PREBUILT_DIR="$prebuilt_dir" \
+HZARCHISO_BUILD_DIR="${tmpdir}/build" \
+"$builder" "$repo_dir" >/dev/null
+
+"$checker" "$repo_dir" "$packages_file" >/dev/null
+
+if [ "$(grep -c '^split-base$' "${log_dir}/makepkg-builds")" -ne 1 ]; then
+    fail "split package base was not built exactly once"
+fi
+grep -q '^legacy-local$' "${log_dir}/git-clones" || fail "legacy package was not cloned directly"
+
+missing_prebuilt_repo="${tmpdir}/repo-missing-prebuilt"
+missing_prebuilt_dir="${tmpdir}/empty-prebuilt"
+mkdir -p "$missing_prebuilt_repo" "$missing_prebuilt_dir"
+assert_fails "$missing_prebuilt_repo" "$packages_file" "$missing_prebuilt_dir" 'missing prebuilt package'
+
+printf 'ok\n'
