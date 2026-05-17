@@ -7,28 +7,23 @@
 # Makefile Variables
 
 buildDir=hzLinux
+workDir=work
+outDir=out
 
-# Build Variables
 
-application="HaoZeke's ArchLinux"
-isoName='hzlinux_V'
-# name_ver-ddmmyy
-label='HZLIN_V-211222'
-publisher='Rohit Goswami (HaoZeke) <rohit.goswami[at]aol.com>'
+.PHONY: check
+check:
+	./scripts/hzarchiso-profile-check $(buildDir)
 
+.PHONY: build
+build: check
+	sudo mkarchiso -v -w $(workDir) -o $(outDir) $(buildDir)
 
 .PHONY: install
-install:
-	cd $(buildDir) && sudo ./build.sh -v \
-  -A $(application) \
-  -N $(isoName) \
-  -L $(label) \
-  -P $(publisher)
+install: build
 
 .PHONY: clean
 clean:
-	cd $(buildDir) && \
-	sudo rm -v work/build.make_* && \
-	sudo find work/etc/ -type l -delete
+	sudo rm -rf -- $(workDir) $(outDir)
 
 # end
