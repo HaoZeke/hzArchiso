@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+profile=${1:-hzLinux}
+failures=0
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    failures=$((failures + 1))
+}
+
+require_file() {
+    local path="$1"
+    if [ ! -f "$path" ]; then
+        fail "missing required file: $path"
+    fi
+}
+
+require_file "$profile/packages.x86_64"
+require_file "$profile/pacman.conf"
+require_file "$profile/profiledef.sh"
+
+if [ "$failures" -eq 0 ]; then
+    duplicates=$(
+        awk '
+            /^[[:space:]]*($|#)/ { next }
+            { count[$1]++ }
+            END {
+                for (pkg in count) {
+                    if (count[pkg] > 1) {
+                        print pkg
+                    }
+                }
+            }
+        ' "$profile/packages.x86_64" | sort
+    )
+    if [ -n "$duplicates" ]; then
+        while IFS= read -r pkg; do
+            [ -n "$pkg" ] && fail "duplicate package: $pkg"
+        done <<<"$duplicates"
+    fi
+
+    for pkg in mkinitcpio mkinitcpio-archiso; do
+        if ! awk -v pkg="$pkg" '$1 == pkg { found = 1 } END { exit found ? 0 : 1 }' "$profile/packages.x86_64"; then
+            fail "missing mandatory package: $pkg"
+        fi
+    done
+
+    obsolete_repos=$(
+        awk '
+            /^[[:space:]]*\[(community|community-testing)\][[:space:]]*$/ {
+                gsub(/^[[:space:]]*\[/, "", $0)
+                gsub(/\][[:space:]]*$/, "", $0)
+                print $0
+            }
+        ' "$profile/pacman.conf"
+    )
+    if [ -n "$obsolete_repos" ]; then
+        while IFS= read -r repo; do
+            [ -n "$repo" ] && fail "obsolete repository enabled: $repo"
+        done <<<"$obsolete_repos"
+    fi
+
+    if grep -Eq "bios\.syslinux\.(mbr|eltorito)|uefi-(ia32|x64)\.grub\.(esp|eltorito)" "$profile/profiledef.sh"; then
+        fail "legacy bootmode found in profiledef.sh"
+    fi
+    if ! grep -Eq "bootmodes=.*bios\.syslinux|bios\.syslinux" "$profile/profiledef.sh"; then
+        fail "missing bootmode: bios.syslinux"
+    fi
+    if ! grep -Eq "bootmodes=.*uefi\.systemd-boot|uefi\.systemd-boot" "$profile/profiledef.sh"; then
+        fail "missing bootmode: uefi.systemd-boot"
+    fi
+
+    install_dir=$(
+        sed -nE "s/^[[:space:]]*install_dir=['\"]?([^'\"[:space:]]+)['\"]?.*/\1/p" "$profile/profiledef.sh" | head -n 1
+    )
+    if [[ ! "$install_dir" =~ ^[a-z0-9]{1,8}$ ]]; then
+        fail "invalid install_dir: ${install_dir:-<unset>}"
+    fi
+
+    if [ -d "$profile/airootfs" ]; then
+        while IFS= read -r executable; do
+            rel_path=${executable#"$profile/airootfs"}
+            if ! grep -Fq "[\"$rel_path\"]" "$profile/profiledef.sh" \
+                && ! grep -Fq "['$rel_path']" "$profile/profiledef.sh"; then
+                fail "missing file_permissions entry: $rel_path"
+            fi
+        done < <(find "$profile/airootfs" -type f -perm -111 | sort)
+    fi
+fi
+
+if [ "$failures" -ne 0 ]; then
+    exit 1
+fi
+
+printf 'ok\n'

@@ -41,15 +41,12 @@ grml-zsh-config
 grub
 hdparm
 hyperv
-intel-ucode
-irssi
 irssi
 iw
 iwd
 jfsutils
 kitty-terminfo
 less
-lftp
 lftp
 libfido2
 libusb-compat
@@ -96,7 +93,6 @@ qemu-guest-agent
 refind
 reiserfsprogs
 rp-pppoe
-rp-pppoe
 rsync
 rxvt-unicode-terminfo
 screen
@@ -124,10 +120,8 @@ wireless-regdb
 wireless_tools
 wpa_supplicant
 wvdial
-wvdial
 xcb-util-errors
 xfsprogs
-xl2tpd
 xl2tpd
 zsh
 
@@ -144,9 +138,7 @@ git
 gnome-backgrounds
 gparted
 gperf
-grml-zsh-config
 light
-lightdm
 lightdm
 lxsession
 neovim
@@ -155,7 +147,6 @@ sway
 swayidle
 swayimg
 thermald
-tmux
 ttf-opensans
 udiskie
 udisks2
@@ -165,7 +156,6 @@ waybar
 
 # Networking
 blueberry
-iwd
 mosh
 networkmanager
 
@@ -209,7 +199,6 @@ cronie
 unison
 
 # Encryption
-veracrypt
 cryptomator
 gnome-encfs-manager-bin
 

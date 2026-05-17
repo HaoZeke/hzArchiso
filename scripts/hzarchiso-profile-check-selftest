@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+checker="${repo_root}/scripts/hzarchiso-profile-check"
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+make_profile() {
+    local profile="$1"
+    mkdir -p "$profile/airootfs/usr/local/bin"
+    cat >"$profile/packages.x86_64" <<'EOF'
+base
+mkinitcpio
+mkinitcpio-archiso
+sway
+EOF
+    cat >"$profile/pacman.conf" <<'EOF'
+[options]
+Architecture = auto
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+EOF
+    cat >"$profile/profiledef.sh" <<'EOF'
+install_dir="hzlinux"
+bootmodes=('bios.syslinux' 'uefi.systemd-boot')
+file_permissions=(
+  ["/usr/local/bin/hz-install"]="0:0:755"
+)
+EOF
+    printf '#!/usr/bin/env bash\n' >"$profile/airootfs/usr/local/bin/hz-install"
+    chmod +x "$profile/airootfs/usr/local/bin/hz-install"
+}
+
+assert_passes() {
+    local profile="$1"
+    "$checker" "$profile" >/dev/null 2>&1 || fail "expected profile to pass"
+}
+
+assert_fails() {
+    local profile="$1" pattern="$2"
+    local out
+    if out=$("$checker" "$profile" 2>&1); then
+        fail "expected profile to fail: $pattern"
+    fi
+    grep -q "$pattern" <<<"$out" || fail "missing failure pattern: $pattern"
+}
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+good="$tmpdir/good"
+make_profile "$good"
+assert_passes "$good"
+
+duplicate="$tmpdir/duplicate"
+make_profile "$duplicate"
+printf 'sway\n' >>"$duplicate/packages.x86_64"
+assert_fails "$duplicate" 'duplicate package'
+
+community="$tmpdir/community"
+make_profile "$community"
+cat >>"$community/pacman.conf" <<'EOF'
+
+[community]
+Include = /etc/pacman.d/mirrorlist
+EOF
+assert_fails "$community" 'obsolete repository'
+
+legacy_boot="$tmpdir/legacy-boot"
+make_profile "$legacy_boot"
+sed -i "s/uefi.systemd-boot/uefi-x64.grub.esp/" "$legacy_boot/profiledef.sh"
+assert_fails "$legacy_boot" 'legacy bootmode'
+
+bad_install_dir="$tmpdir/bad-install-dir"
+make_profile "$bad_install_dir"
+sed -i 's/install_dir="hzlinux"/install_dir="hz-linux-long"/' "$bad_install_dir/profiledef.sh"
+assert_fails "$bad_install_dir" 'invalid install_dir'
+
+missing_perm="$tmpdir/missing-perm"
+make_profile "$missing_perm"
+sed -i '/hz-install/d' "$missing_perm/profiledef.sh"
+assert_fails "$missing_perm" 'missing file_permissions'
+
+printf 'ok\n'
