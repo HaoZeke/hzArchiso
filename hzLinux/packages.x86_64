@@ -249,6 +249,77 @@ dunst
 # Privacy
 proxychains-ng
 
+# Immediate usability
+firefox
+chromium
+vivaldi
+vivaldi-ffmpeg-codecs
+obsidian
+libreoffice-fresh
+keepassxc
+gnome-keyring
+seahorse
+obs-studio
+kooha
+v4l2loopback-dkms
+v4l2loopback-utils
+vlc
+spotify-launcher
+element-desktop
+discord
+thunar
+thunar-archive-plugin
+thunar-media-tags-plugin
+thunar-volman
+tumbler
+engrampa
+ffmpegthumbnailer
+gvfs-mtp
+android-file-transfer
+android-tools
+flatpak
+bluez-utils
+alsa-utils
+pamixer
+playerctl
+nm-connection-editor
+networkmanager-openvpn
+openfortivpn
+bash-completion
+ripgrep
+fd
+btop
+ncdu
+tree
+trash-cli
+unzip
+unrar
+yazi
+zellij
+github-cli
+glab
+git-lfs
+shellcheck
+shfmt
+cmake
+meson
+gdb
+lldb
+strace
+python-pipx
+podman
+podman-compose
+reflector
+pacman-contrib
+noto-fonts
+noto-fonts-emoji
+ttf-jetbrains-mono-nerd
+otf-font-awesome
+kanshi
+wdisplays
+wlr-randr
+xdg-utils
+
 # Local Variables:
 # mode: conf
 # End:

@@ -61,6 +61,7 @@ for pkg in \
     thunar flatpak bluez-utils pamixer nm-connection-editor \
     networkmanager-openvpn ripgrep fd btop yazi github-cli glab podman \
     reflector noto-fonts ttf-jetbrains-mono-nerd kanshi; do
+    # shellcheck disable=SC2016
     assert_jq "$config" '.packages | index($pkg)' "installed usability package missing: $pkg" --arg pkg "$pkg"
 done
 if jq -e '.packages | index("kanata")' "$config" >/dev/null; then
