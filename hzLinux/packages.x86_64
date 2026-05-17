@@ -130,30 +130,52 @@ zsh
 accountsservice
 age
 aria2
+brightnessctl
+btrbk
 chezmoi
 chrony
+cliphist
 dkms
 dnsutils
 emacs
+fwupd
+gammastep
 git
 gnome-backgrounds
 gparted
 gperf
+greetd
+greetd-tuigreet
 light
 lightdm
 lxsession
 neovim
+pipewire
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
 polkit
 sway
+swaybg
 swayidle
 swayimg
+swaylock
+tailscale
 thermald
+tlp
+tlp-rdw
 ttf-opensans
 udiskie
 udisks2
 veracrypt
+wireplumber
 wlroots
+xdg-desktop-portal
+xdg-desktop-portal-wlr
+xdg-user-dirs
 waybar
+wob
+zram-generator
 
 # Networking
 blueberry
@@ -162,6 +184,7 @@ networkmanager
 
 # Navigation
 caja
+fuzzel
 rofi
 rofi-calc
 
@@ -178,9 +201,7 @@ smplayer-skins
 
 # Audio
 pavucontrol
-pulseaudio
-pulseaudio-alsa
-pulseaudio-bluetooth
+gst-plugin-pipewire
 
 # Music
 audacious
@@ -206,6 +227,9 @@ gnome-encfs-manager-bin
 # Screenshots
 teiler-git
 flameshot
+satty
+wf-recorder
+wl-clipboard
 
 # Browser
 falkon
