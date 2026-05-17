@@ -12,7 +12,6 @@ broadcom-wl
 btrfs-progs
 clonezilla
 cloud-init
-crda
 cryptsetup
 darkhttpd
 ddrescue
@@ -33,7 +32,6 @@ exfat-utils
 f2fs-tools
 fatresize
 fsarchiver
-gnu-netcat
 gpart
 gpm
 gptfdisk
@@ -51,11 +49,12 @@ less
 lftp
 libfido2
 libusb-compat
-lightdm-webkit2-greeter
-linux-nitrous
-linux-nitrous-headers
+linux
+linux-headers
 linux-firmware
 linux-firmware-marvell
+linux-lts
+linux-lts-headers
 livecd-sounds
 lsscsi
 lvm2
@@ -78,6 +77,7 @@ nmap
 ntfs-3g
 ntp
 nvme-cli
+openbsd-netcat
 open-iscsi
 open-vm-tools
 openconnect
@@ -92,7 +92,6 @@ pptpclient
 pv
 qemu-guest-agent
 refind
-reiserfsprogs
 rp-pppoe
 rsync
 rxvt-unicode-terminfo
@@ -136,7 +135,6 @@ chezmoi
 chrony
 cliphist
 dkms
-dnsutils
 emacs
 fwupd
 gammastep
@@ -146,7 +144,6 @@ gparted
 gperf
 greetd
 greetd-tuigreet
-light
 lightdm
 lxsession
 neovim
@@ -169,16 +166,15 @@ udiskie
 udisks2
 veracrypt
 wireplumber
-wlroots
 xdg-desktop-portal
 xdg-desktop-portal-wlr
 xdg-user-dirs
 waybar
 wob
+xorg-xwayland
 zram-generator
 
 # Networking
-blueberry
 mosh
 networkmanager
 
@@ -211,7 +207,6 @@ pianobar
 
 # Cloud Management
 rclone
-pcloud-drive
 
 # Messaging
 telegram-desktop
@@ -220,14 +215,11 @@ telegram-desktop
 cronie
 unison
 
-# Encryption
-cryptomator
-gnome-encfs-manager-bin
-
 # Screenshots
-teiler-git
 flameshot
+grim
 satty
+slurp
 wf-recorder
 wl-clipboard
 
@@ -249,36 +241,14 @@ vulkan-intel
 
 # Xorg
 xorg-server
-xorg-server-xwayland
 xorg-xauth
 
 # DM
-i3-gaps
 i3lock
 dunst
 
-# AUR [Local]
-rtl88xxau-aircrack-dkms-git
-enpass-bin
-grim-git
-i3status-rust-git
-lightdm-webkit-theme-aether
-networkmanager-dispatcher-chrony
-slurp-git
-swaybg-git
-swaylock-effects
-yay
-
 # Privacy
-windscribe-cli
 proxychains-ng
-
-# Helpers
-ananicy
-nitrogen
-
-# Dependencies
-xininfo-git
 
 # Local Variables:
 # mode: conf
