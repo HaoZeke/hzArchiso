@@ -21,11 +21,10 @@ specific hardware, switch to another TTY with ~CTRL-ALT-F3~, log in with the
 credentials above, and run ~sway~.
 
 ** Methodology
-The profile uses the standard ~archiso~ workflow and official Arch repositories
-for the live image. Daily-driver packages from official repositories are baked
-into the ISO so the live system is useful before installation. Private,
-AUR-only, and machine-specific packages require an explicit package source or
-the post-install chezmoi bootstrap.
+The profile uses the standard ~archiso~ workflow. Daily-driver packages from
+official Arch repositories and the local AUR/custom repository are baked into
+the ISO so the live system is useful before installation. The build-time custom
+repository is named ~hzarchiso~ and is mounted at ~file:///repo/hzarchiso~.
 
 ** Software Included
 The exact live package list is in ~hzLinux/packages.x86_64~. The installed
@@ -38,7 +37,7 @@ The current profile emphasizes:
 - Sway, Waybar, foot, fuzzel, greetd, and tuigreet
 - PipeWire, WirePlumber, ~xdg-desktop-portal~, and
   ~xdg-desktop-portal-wlr~
-- screenshot and recording tools: grim, slurp, satty, wf-recorder,
+- screenshot and recording tools: grim-git, slurp-git, satty, wf-recorder,
   wl-clipboard, cliphist, OBS Studio, Kooha, and v4l2loopback
 - browsers, office, and knowledge work: Firefox, Chromium, Vivaldi,
   LibreOffice, Obsidian, Zathura
@@ -49,6 +48,9 @@ The current profile emphasizes:
   nvme-cli, tlp, thermald, zram-generator
 - bootstrap and development tooling: chezmoi, age, pass, git, openssh, gh,
   glab, podman, build/debug tools
+- AUR/local payload: linux-nitrous, linux-nitrous-headers, Enpass, pCloud,
+  Windscribe, Cryptomator, gnome-encfs-manager, yay, rtl88xxau DKMS, and the
+  existing git variants for Sway/Wayland helper tools
 
 * Installer
 Run the TUI from the live environment:
@@ -86,7 +88,12 @@ Build and validation should run on an Arch builder or in an Arch container:
 #+begin_src bash
 make tui-check
 make check
-make build
+docker run --rm --privileged \
+  -v "$PWD:/work" \
+  -v /path/to/hzarchiso-repo:/repo/hzarchiso:ro \
+  -w /work \
+  archlinux:base-devel \
+  bash -lc 'pacman -Sy --noconfirm archiso go jq make && make build'
 #+end_src
 
 The ~build~ target compiles ~hz-install-tui~ into
