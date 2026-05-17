@@ -81,6 +81,25 @@ Include = /etc/pacman.d/mirrorlist
 EOF
 assert_fails "$community" 'obsolete repository'
 
+airootfs_repo="$tmpdir/airootfs-repo"
+make_profile "$airootfs_repo"
+mkdir -p "$airootfs_repo/airootfs/etc"
+cat >"$airootfs_repo/airootfs/etc/pacman.conf" <<'EOF'
+[options]
+Architecture = auto
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+
+[hzarchiso]
+SigLevel = Never
+Server = https://localhost:8080
+EOF
+assert_fails "$airootfs_repo" 'unsupported repository'
+
 legacy_boot="$tmpdir/legacy-boot"
 make_profile "$legacy_boot"
 sed -i "s/uefi.systemd-boot/uefi-x64.grub.esp/" "$legacy_boot/profiledef.sh"

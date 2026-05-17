@@ -21,6 +21,11 @@ require_file "$profile/pacman.conf"
 require_file "$profile/profiledef.sh"
 
 if [ "$failures" -eq 0 ]; then
+    pacman_confs=("$profile/pacman.conf")
+    if [ -f "$profile/airootfs/etc/pacman.conf" ]; then
+        pacman_confs+=("$profile/airootfs/etc/pacman.conf")
+    fi
+
     duplicates=$(
         awk '
             /^[[:space:]]*($|#)/ { next }
@@ -62,20 +67,37 @@ if [ "$failures" -eq 0 ]; then
         fi
     fi
 
-    obsolete_repos=$(
-        awk '
-            /^[[:space:]]*\[(community|community-testing)\][[:space:]]*$/ {
-                gsub(/^[[:space:]]*\[/, "", $0)
-                gsub(/\][[:space:]]*$/, "", $0)
-                print $0
-            }
-        ' "$profile/pacman.conf"
-    )
-    if [ -n "$obsolete_repos" ]; then
-        while IFS= read -r repo; do
-            [ -n "$repo" ] && fail "obsolete repository enabled: $repo"
-        done <<<"$obsolete_repos"
-    fi
+    for pacman_conf in "${pacman_confs[@]}"; do
+        obsolete_repos=$(
+            awk '
+                /^[[:space:]]*\[(community|community-testing)\][[:space:]]*$/ {
+                    gsub(/^[[:space:]]*\[/, "", $0)
+                    gsub(/\][[:space:]]*$/, "", $0)
+                    print $0
+                }
+            ' "$pacman_conf"
+        )
+        if [ -n "$obsolete_repos" ]; then
+            while IFS= read -r repo; do
+                [ -n "$repo" ] && fail "obsolete repository enabled in $pacman_conf: $repo"
+            done <<<"$obsolete_repos"
+        fi
+
+        unsupported_repos=$(
+            awk '
+                /^[[:space:]]*\[(hzarchiso)\][[:space:]]*$/ {
+                    gsub(/^[[:space:]]*\[/, "", $0)
+                    gsub(/\][[:space:]]*$/, "", $0)
+                    print $0
+                }
+            ' "$pacman_conf"
+        )
+        if [ -n "$unsupported_repos" ]; then
+            while IFS= read -r repo; do
+                [ -n "$repo" ] && fail "unsupported repository enabled in $pacman_conf: $repo"
+            done <<<"$unsupported_repos"
+        fi
+    done
 
     if grep -Eq "bios\.syslinux\.(mbr|eltorito)|uefi-(ia32|x64)\.grub\.(esp|eltorito)" "$profile/profiledef.sh"; then
         fail "legacy bootmode found in profiledef.sh"
