@@ -39,7 +39,7 @@ if [ -z "$repo_db" ]; then
 fi
 
 if [ "$failures" -eq 0 ]; then
-    command -v bsdtar >/dev/null 2>&1 || fail "bsdtar is required"
+    command -v tar >/dev/null 2>&1 || fail "tar is required"
 fi
 
 if [ "$failures" -eq 0 ]; then
@@ -51,7 +51,7 @@ if [ "$failures" -eq 0 ]; then
     db_files="${tmpdir}/db-files"
     required_names="${tmpdir}/required-names"
 
-    if ! bsdtar -tf "$repo_db" >"${tmpdir}/db-list"; then
+    if ! tar -tf "$repo_db" >"${tmpdir}/db-list"; then
         fail "unreadable repository database: $repo_db"
     fi
 
@@ -63,7 +63,7 @@ if [ "$failures" -eq 0 ]; then
     : >"$db_names"
     : >"$db_files"
     while IFS= read -r desc; do
-        bsdtar -xOf "$repo_db" "$desc" |
+        tar -xOf "$repo_db" "$desc" |
             awk -v names="$db_names" -v files="$db_files" '
                 previous == "%NAME%" {
                     print $0 >> names
