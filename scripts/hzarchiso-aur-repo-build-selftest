@@ -64,6 +64,9 @@ url="$2"
 dest="$3"
 base=${url##*/}
 base=${base%.git}
+if [ "$base" = binary-only ]; then
+    exit 1
+fi
 mkdir -p "$dest"
 printf '%s\n' "$base" >"${dest}/.hzarchiso-base"
 printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/git-clones"
@@ -73,6 +76,19 @@ chmod +x "${fake_bin}/git"
 cat >"${fake_bin}/makepkg" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+source_dir=$PWD
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -D|--dir)
+            source_dir="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+cd "$source_dir"
 base=$(cat .hzarchiso-base)
 printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/makepkg-builds"
 case "$base" in

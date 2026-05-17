@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+repo_dir=${1:-${HZARCHISO_REPO_DIR:-/repo/hzarchiso}}
+packages_file=${HZARCHISO_AUR_PACKAGES_FILE:-"${repo_root}/aurpkgs.txt"}
+build_dir=${HZARCHISO_BUILD_DIR:-/tmp/hzarchiso-aur-build}
+prebuilt_dir=${HZARCHISO_PREBUILT_DIR:-}
+repo_name=${HZARCHISO_REPO_NAME:-hzarchiso}
+aur_rpc_url=${HZARCHISO_AUR_RPC_URL:-https://aur.archlinux.org/rpc/v5/info}
+aur_rpc_file=${HZARCHISO_AUR_RPC_FILE:-}
+aur_git_url_base=${HZARCHISO_AUR_GIT_URL_BASE:-https://aur.archlinux.org}
+checker=${HZARCHISO_REPO_CHECKER:-"${repo_root}/scripts/hzarchiso-aur-repo-check"}
+install_built=${HZARCHISO_INSTALL_BUILT:-0}
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+require_command() {
+    local command_name="$1"
+    command -v "$command_name" >/dev/null 2>&1 || fail "$command_name is required"
+}
+
+read_packages() {
+    awk '!/^[[:space:]]*($|#)/ { print $1 }' "$packages_file"
+}
+
+fetch_aur_info() {
+    local output_file="$1"
+    shift
+
+    if [ -n "$aur_rpc_file" ]; then
+        cp -- "$aur_rpc_file" "$output_file"
+        return
+    fi
+
+    local curl_args=(-fsS --get)
+    local pkg
+    for pkg in "$@"; do
+        curl_args+=(--data-urlencode "arg[]=$pkg")
+    done
+    curl "${curl_args[@]}" "$aur_rpc_url" >"$output_file"
+}
+
+package_files_in() {
+    local directory="$1"
+    find "$directory" -maxdepth 1 -type f \
+        \( -name '*.pkg.tar' -o -name '*.pkg.tar.*' \) \
+        ! -name '*.sig' \
+        | sort
+}
+
+repo_add_package() {
+    local pkgfile="$1"
+    local filename
+    filename=$(basename -- "$pkgfile")
+    cp -f -- "$pkgfile" "${repo_dir}/${filename}"
+    repo-add -q "${repo_dir}/${repo_name}.db.tar.gz" "${repo_dir}/${filename}"
+}
+
+install_package_on_builder() {
+    local pkgfile="$1"
+    if [ "$install_built" = 1 ]; then
+        sudo pacman -U --noconfirm --needed "$pkgfile"
+    fi
+}
+
+clone_base() {
+    local base="$1" source_dir="$2"
+    if [ -d "$source_dir" ]; then
+        fail "build source directory already exists: $source_dir"
+    fi
+    git clone "${aur_git_url_base}/${base}.git" "$source_dir"
+}
+
+build_base() {
+    local base="$1"
+    local source_dir="${build_dir}/src/${base}"
+    local built_files=()
+    local pkgfile
+
+    clone_base "$base" "$source_dir"
+    makepkg -D "$source_dir" -s --noconfirm --needed --skippgpcheck
+
+    mapfile -t built_files < <(package_files_in "$source_dir")
+    if [ "${#built_files[@]}" -eq 0 ]; then
+        fail "no package files produced for package base: $base"
+    fi
+
+    for pkgfile in "${built_files[@]}"; do
+        repo_add_package "$pkgfile"
+        install_package_on_builder "${repo_dir}/$(basename -- "$pkgfile")"
+    done
+}
+
+find_prebuilt_package() {
+    local pkg="$1"
+    if [ -z "$prebuilt_dir" ]; then
+        return 1
+    fi
+    find "$prebuilt_dir" -maxdepth 1 -type f \
+        \( -name "${pkg}-*.pkg.tar" -o -name "${pkg}-*.pkg.tar.*" \) \
+        ! -name '*.sig' \
+        | sort -V \
+        | tail -n 1
+}
+
+test -f "$packages_file" || fail "missing package list: $packages_file"
+test -x "$checker" || fail "missing repository checker: $checker"
+
+require_command jq
+require_command git
+require_command makepkg
+require_command repo-add
+if [ -z "$aur_rpc_file" ]; then
+    require_command curl
+fi
+if [ "$install_built" = 1 ]; then
+    require_command sudo
+fi
+
+if [ "$(id -u)" -eq 0 ] && [ "${HZARCHISO_ALLOW_ROOT_MAKEPKG:-0}" != 1 ]; then
+    fail "run as a non-root build user; makepkg refuses to build as root"
+fi
+
+mkdir -p "$repo_dir" "${build_dir}/src"
+
+mapfile -t requested_packages < <(read_packages)
+if [ "${#requested_packages[@]}" -eq 0 ]; then
+    fail "package list is empty: $packages_file"
+fi
+
+aur_info="${build_dir}/aur-rpc.json"
+fetch_aur_info "$aur_info" "${requested_packages[@]}"
+
+declare -A base_by_package=()
+while IFS=$'\t' read -r package_name package_base; do
+    if [ -n "$package_name" ] && [ -n "$package_base" ]; then
+        base_by_package["$package_name"]="$package_base"
+    fi
+done < <(jq -r '.results[]? | [.Name, .PackageBase] | @tsv' "$aur_info")
+
+declare -A seen_base=()
+aur_bases=()
+direct_bases=()
+prebuilt_packages=()
+
+for pkg in "${requested_packages[@]}"; do
+    if [ -n "${base_by_package[$pkg]:-}" ]; then
+        base="${base_by_package[$pkg]}"
+        if [ -z "${seen_base[$base]:-}" ]; then
+            aur_bases+=("$base")
+            seen_base["$base"]=1
+        fi
+        continue
+    fi
+
+    direct_source_dir="${build_dir}/src/${pkg}"
+    if clone_base "$pkg" "$direct_source_dir" >/dev/null 2>&1; then
+        direct_bases+=("$pkg")
+        seen_base["$pkg"]=1
+        continue
+    fi
+
+    if prebuilt_pkg=$(find_prebuilt_package "$pkg") && [ -n "$prebuilt_pkg" ]; then
+        prebuilt_packages+=("$prebuilt_pkg")
+        continue
+    fi
+
+    fail "missing prebuilt package for non-AUR package: $pkg"
+done
+
+for base in "${aur_bases[@]}"; do
+    build_base "$base"
+done
+
+for base in "${direct_bases[@]}"; do
+    source_dir="${build_dir}/src/${base}"
+    makepkg -D "$source_dir" -s --noconfirm --needed --skippgpcheck
+    mapfile -t built_files < <(package_files_in "$source_dir")
+    if [ "${#built_files[@]}" -eq 0 ]; then
+        fail "no package files produced for package base: $base"
+    fi
+    for pkgfile in "${built_files[@]}"; do
+        repo_add_package "$pkgfile"
+        install_package_on_builder "${repo_dir}/$(basename -- "$pkgfile")"
+    done
+done
+
+for pkgfile in "${prebuilt_packages[@]}"; do
+    repo_add_package "$pkgfile"
+done
+
+"$checker" "$repo_dir" "$packages_file"
