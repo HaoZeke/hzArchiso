@@ -19,7 +19,7 @@ check:
 
 .PHONY: tui
 tui:
-	cd $(installerDir) && go build -trimpath -ldflags="-s -w" -o ../../$(tuiBin) .
+	cd $(installerDir) && go build -buildvcs=false -trimpath -ldflags="-s -w" -o ../../$(tuiBin) .
 
 .PHONY: tui-check
 tui-check: tui
