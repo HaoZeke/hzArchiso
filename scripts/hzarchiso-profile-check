@@ -46,6 +46,22 @@ if [ "$failures" -eq 0 ]; then
         fi
     done
 
+    if command -v pacman >/dev/null 2>&1; then
+        official_packages=$(pacman -Slq core extra 2>/dev/null | sort -u || true)
+        if [ -n "$official_packages" ]; then
+            unavailable=$(
+                comm -23 \
+                    <(awk '!/^[[:space:]]*($|#)/ { print $1 }' "$profile/packages.x86_64" | sort -u) \
+                    <(printf '%s\n' "$official_packages")
+            )
+            if [ -n "$unavailable" ]; then
+                while IFS= read -r pkg; do
+                    [ -n "$pkg" ] && fail "unavailable package: $pkg"
+                done <<<"$unavailable"
+            fi
+        fi
+    fi
+
     obsolete_repos=$(
         awk '
             /^[[:space:]]*\[(community|community-testing)\][[:space:]]*$/ {
