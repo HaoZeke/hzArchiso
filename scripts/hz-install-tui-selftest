@@ -51,7 +51,7 @@ assert_jq "$config" '.kernels | index("linux")' "linux kernel missing"
 assert_jq "$config" '.kernels | index("linux-lts")' "linux-lts kernel missing"
 assert_jq "$config" '.packages | index("chezmoi")' "chezmoi package missing"
 assert_jq "$config" '.packages | index("kanata")' "kanata package missing"
-assert_jq "$config" '.["custom-commands"][] | contains("key_layout = \"colemak\"")' "chezmoi key layout missing"
+assert_jq "$config" 'any(.["custom-commands"][]; contains("key_layout = \"colemak\""))' "chezmoi key layout missing"
 assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
 assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
 
