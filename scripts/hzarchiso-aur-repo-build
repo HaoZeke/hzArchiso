@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 repo_dir=${1:-${HZARCHISO_REPO_DIR:-/repo/hzarchiso}}
 packages_file=${HZARCHISO_AUR_PACKAGES_FILE:-"${repo_root}/aurpkgs.txt"}
-build_dir=${HZARCHISO_BUILD_DIR:-/tmp/hzarchiso-aur-build}
+build_dir=${HZARCHISO_BUILD_DIR:-"${repo_dir}/build"}
 prebuilt_dir=${HZARCHISO_PREBUILT_DIR:-}
 repo_name=${HZARCHISO_REPO_NAME:-hzarchiso}
 aur_rpc_url=${HZARCHISO_AUR_RPC_URL:-https://aur.archlinux.org/rpc/v5/info}

@@ -100,6 +100,10 @@ legacy AUR bases when the RPC result is unavailable, copies packages supplied by
 ~build~ target verifies that this repository contains every package in
 ~aurpkgs.txt~ before running ~mkarchiso~.
 
+The AUR build tree defaults to ~/repo/hzarchiso/build~ so large packages such as
+~linux-nitrous~ use the same mounted filesystem as the local package repository.
+Set ~HZARCHISO_BUILD_DIR~ when the repository path is not on a roomy filesystem.
+
 Containerized builds need a writable ~/repo/hzarchiso~ and a non-root user for
 ~makepkg~:
 
