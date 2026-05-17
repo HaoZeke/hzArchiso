@@ -16,6 +16,7 @@ tuiBin=$(buildDir)/airootfs/usr/local/bin/hz-install-tui
 .PHONY: check
 check:
 	./scripts/hzarchiso-profile-check $(buildDir)
+	./scripts/hzarchiso-usability-selftest $(buildDir)
 
 .PHONY: tui
 tui:

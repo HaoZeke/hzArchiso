@@ -50,6 +50,14 @@ assert_jq "$config" '.packages | index("greetd-tuigreet")' "tuigreet package mis
 assert_jq "$config" '.packages | index("xdg-desktop-portal-wlr")' "wlroots portal package missing"
 assert_jq "$config" '.packages | index("zram-generator")' "zram package missing"
 assert_jq "$config" '.packages | index("tlp")' "tlp package missing"
+for pkg in \
+    firefox chromium vivaldi obsidian libreoffice-fresh keepassxc obs-studio \
+    kooha v4l2loopback-dkms vlc spotify-launcher element-desktop discord \
+    thunar flatpak bluez-utils pamixer nm-connection-editor \
+    networkmanager-openvpn ripgrep fd btop yazi github-cli glab podman \
+    reflector noto-fonts ttf-jetbrains-mono-nerd kanshi; do
+    assert_jq "$config" --arg pkg "$pkg" '.packages | index($pkg)' "installed usability package missing: $pkg"
+done
 if jq -e '.packages | index("kanata")' "$config" >/dev/null; then
     fail "kanata should be installed by the post-install bootstrap"
 fi

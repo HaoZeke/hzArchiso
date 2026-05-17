@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+profile=${1:-hzLinux}
+packages_file="$profile/packages.x86_64"
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+test -f "$packages_file" || fail "missing package list: $packages_file"
+
+required_packages=(
+    firefox
+    chromium
+    vivaldi
+    vivaldi-ffmpeg-codecs
+    obsidian
+    libreoffice-fresh
+    zathura
+    keepassxc
+    gnome-keyring
+    seahorse
+    obs-studio
+    kooha
+    v4l2loopback-dkms
+    v4l2loopback-utils
+    vlc
+    spotify-launcher
+    element-desktop
+    discord
+    telegram-desktop
+    thunar
+    thunar-archive-plugin
+    thunar-media-tags-plugin
+    thunar-volman
+    tumbler
+    engrampa
+    ffmpegthumbnailer
+    gvfs-mtp
+    android-file-transfer
+    android-tools
+    flatpak
+    bluez-utils
+    alsa-utils
+    pamixer
+    playerctl
+    pavucontrol
+    nm-connection-editor
+    networkmanager-openvpn
+    openfortivpn
+    bash-completion
+    ripgrep
+    fd
+    btop
+    ncdu
+    tree
+    trash-cli
+    unzip
+    unrar
+    yazi
+    zellij
+    github-cli
+    glab
+    git-lfs
+    shellcheck
+    shfmt
+    cmake
+    meson
+    gdb
+    lldb
+    strace
+    python-pipx
+    podman
+    podman-compose
+    reflector
+    pacman-contrib
+    noto-fonts
+    noto-fonts-emoji
+    ttf-jetbrains-mono-nerd
+    otf-font-awesome
+    kanshi
+    wdisplays
+    wlr-randr
+    xdg-utils
+)
+
+missing=()
+for pkg in "${required_packages[@]}"; do
+    if ! awk -v pkg="$pkg" '$1 == pkg { found = 1 } END { exit found ? 0 : 1 }' "$packages_file"; then
+        missing+=("$pkg")
+    fi
+done
+
+if [ "${#missing[@]}" -ne 0 ]; then
+    printf 'FAIL: missing live usability packages:\n' >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    exit 1
+fi
+
+if command -v pacman >/dev/null 2>&1; then
+    official_packages=$(pacman -Slq core extra 2>/dev/null | sort -u || true)
+    if [ -n "$official_packages" ]; then
+        unavailable=$(
+            comm -23 \
+                <(printf '%s\n' "${required_packages[@]}" | sort -u) \
+                <(printf '%s\n' "$official_packages")
+        )
+        if [ -n "$unavailable" ]; then
+            printf 'FAIL: live usability package is not in official repositories:\n' >&2
+            printf '%s\n' "$unavailable" | sed 's/^/  /' >&2
+            exit 1
+        fi
+    fi
+fi
+
+printf 'ok\n'
