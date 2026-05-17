@@ -65,6 +65,13 @@ make_profile "$duplicate"
 printf 'sway\n' >>"$duplicate/packages.x86_64"
 assert_fails "$duplicate" 'duplicate package'
 
+if command -v pacman >/dev/null 2>&1; then
+    unavailable="$tmpdir/unavailable"
+    make_profile "$unavailable"
+    printf 'definitely-missing-hzarchiso-package\n' >>"$unavailable/packages.x86_64"
+    assert_fails "$unavailable" 'unavailable package'
+fi
+
 community="$tmpdir/community"
 make_profile "$community"
 cat >>"$community/pacman.conf" <<'EOF'
