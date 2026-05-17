@@ -22,21 +22,25 @@ sed -i 's/#\(HandleHibernateKey=\)hibernate/\1ignore/' /etc/systemd/logind.conf
 sed -i 's/#\(HandleLidSwitch=\)suspend/\1ignore/' /etc/systemd/logind.conf
 
 # Make a user
-! id $USER && useradd -m -p "" -g users -G \
+if ! id "$USER" >/dev/null 2>&1; then
+  useradd -m -p "" -g users -G \
     "video,wheel,adm,audio,floppy,log,network,rfkill,scanner,storage,optical,power,wheel" \
-    -s /usr/bin/zsh $USER
-echo -e "$USER\n$USER" | passwd $USER
-cp -aT /etc/skel/ /home/$USER
-chmod -R 751 /home/$USER
-chown -R $USER /home/$USER
+    -s /usr/bin/zsh "$USER"
+fi
+if ! id greeter >/dev/null 2>&1; then
+  useradd -r -M -G video -s /usr/bin/nologin greeter
+fi
+printf '%s\n%s\n' "$USER" "$USER" | passwd "$USER"
+cp -aT /etc/skel/ "/home/$USER"
+chmod -R 751 "/home/$USER"
+chown -R "$USER" "/home/$USER"
 
 systemctl enable pacman-init.service choose-mirror.service
 
 # Added
-systemctl enable ananicy.service \
-    NetworkManager.service \
+systemctl enable NetworkManager.service \
+    greetd.service \
     thermald.service \
-    udisks2.service \
-    lightdm.service
+    udisks2.service
 
 systemctl set-default graphical.target
