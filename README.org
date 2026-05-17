@@ -22,8 +22,10 @@ credentials above, and run ~sway~.
 
 ** Methodology
 The profile uses the standard ~archiso~ workflow and official Arch repositories
-for the live image. Private, AUR-heavy, and machine-specific packages are left to
-the post-install chezmoi bootstrap instead of being baked into the ISO.
+for the live image. Daily-driver packages from official repositories are baked
+into the ISO so the live system is useful before installation. Private,
+AUR-only, and machine-specific packages require an explicit package source or
+the post-install chezmoi bootstrap.
 
 ** Software Included
 The exact live package list is in ~hzLinux/packages.x86_64~. The installed
@@ -37,10 +39,16 @@ The current profile emphasizes:
 - PipeWire, WirePlumber, ~xdg-desktop-portal~, and
   ~xdg-desktop-portal-wlr~
 - screenshot and recording tools: grim, slurp, satty, wf-recorder,
-  wl-clipboard, cliphist
+  wl-clipboard, cliphist, OBS Studio, Kooha, and v4l2loopback
+- browsers, office, and knowledge work: Firefox, Chromium, Vivaldi,
+  LibreOffice, Obsidian, Zathura
+- media and communication: VLC, Spotify, Element, Discord, Telegram
+- file management and device integration: Thunar, Engrampa, GVFS MTP, Android
+  tools, Flatpak
 - laptop/rescue tooling: NetworkManager, tailscale, fwupd, smartmontools,
   nvme-cli, tlp, thermald, zram-generator
-- bootstrap tooling: chezmoi, age, pass, git, openssh
+- bootstrap and development tooling: chezmoi, age, pass, git, openssh, gh,
+  glab, podman, build/debug tools
 
 * Installer
 Run the TUI from the live environment:
