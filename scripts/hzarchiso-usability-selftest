@@ -3,6 +3,9 @@ set -euo pipefail
 
 profile=${1:-hzLinux}
 packages_file="$profile/packages.x86_64"
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+aur_packages_file="${repo_root}/aurpkgs.txt"
+pacman_conf="$profile/pacman.conf"
 
 fail() {
     printf 'FAIL: %s\n' "$*" >&2
@@ -10,6 +13,8 @@ fail() {
 }
 
 test -f "$packages_file" || fail "missing package list: $packages_file"
+test -f "$aur_packages_file" || fail "missing AUR package list: $aur_packages_file"
+test -f "$pacman_conf" || fail "missing pacman config: $pacman_conf"
 
 required_packages=(
     firefox
@@ -97,6 +102,23 @@ if [ "${#missing[@]}" -ne 0 ]; then
     printf 'FAIL: missing live usability packages:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
     exit 1
+fi
+
+while IFS= read -r pkg; do
+    [[ "$pkg" =~ ^[[:space:]]*($|#) ]] && continue
+    if ! awk -v pkg="$pkg" '$1 == pkg { found = 1 } END { exit found ? 0 : 1 }' "$packages_file"; then
+        missing+=("$pkg")
+    fi
+done <"$aur_packages_file"
+
+if [ "${#missing[@]}" -ne 0 ]; then
+    printf 'FAIL: missing baked AUR/local packages:\n' >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    exit 1
+fi
+
+if ! awk '/^[[:space:]]*\[hzarchiso\][[:space:]]*$/ { found = 1 } END { exit found ? 0 : 1 }' "$pacman_conf"; then
+    fail "missing enabled hzarchiso package repository in $pacman_conf"
 fi
 
 if command -v pacman >/dev/null 2>&1; then
