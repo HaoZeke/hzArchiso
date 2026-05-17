@@ -13,7 +13,6 @@ write_pkg() {
     local repo_dir="$1" pkg="$2" version="${3:-1-1}"
     local pkgdir
     pkgdir=$(mktemp -d)
-    mkdir -p "${pkgdir}/.PKGINFO"
     cat >"${pkgdir}/.PKGINFO" <<EOF
 pkgname = ${pkg}
 pkgver = ${version}
@@ -60,7 +59,7 @@ repo-add -q "${repo_dir}/hzarchiso.db.tar.gz" "${repo_dir}"/*.pkg.tar
 assert_fails "$repo_dir" "$packages_file" 'missing package: yay'
 
 write_pkg "$repo_dir" yay
-repo-add -q "${repo_dir}/hzarchiso.db.tar.gz" "${repo_dir}"/*.pkg.tar
+repo-add -q "${repo_dir}/hzarchiso.db.tar.gz" "${repo_dir}/yay-1-1-any.pkg.tar"
 "$checker" "$repo_dir" "$packages_file" >/dev/null
 
 printf 'ok\n'

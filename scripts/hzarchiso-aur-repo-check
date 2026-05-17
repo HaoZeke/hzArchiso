@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir=${1:-/repo/hzarchiso}
+packages_file=${2:-aurpkgs.txt}
+repo_name=${HZARCHISO_REPO_NAME:-hzarchiso}
+failures=0
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    failures=$((failures + 1))
+}
+
+require_file() {
+    local path="$1"
+    if [ ! -f "$path" ]; then
+        fail "missing required file: $path"
+    fi
+}
+
+repo_db=""
+for candidate in \
+    "${repo_dir}/${repo_name}.db" \
+    "${repo_dir}/${repo_name}.db.tar.gz" \
+    "${repo_dir}/${repo_name}.db.tar.zst" \
+    "${repo_dir}/${repo_name}.db.tar.xz"; do
+    if [ -f "$candidate" ]; then
+        repo_db="$candidate"
+        break
+    fi
+done
+
+if [ ! -d "$repo_dir" ]; then
+    fail "missing repository directory: $repo_dir"
+fi
+require_file "$packages_file"
+if [ -z "$repo_db" ]; then
+    fail "missing repository database: ${repo_dir}/${repo_name}.db"
+fi
+
+if [ "$failures" -eq 0 ]; then
+    command -v bsdtar >/dev/null 2>&1 || fail "bsdtar is required"
+fi
+
+if [ "$failures" -eq 0 ]; then
+    tmpdir=$(mktemp -d)
+    trap 'rm -rf "$tmpdir"' EXIT
+
+    desc_list="${tmpdir}/desc-files"
+    db_names="${tmpdir}/db-names"
+    db_files="${tmpdir}/db-files"
+    required_names="${tmpdir}/required-names"
+
+    if ! bsdtar -tf "$repo_db" >"${tmpdir}/db-list"; then
+        fail "unreadable repository database: $repo_db"
+    fi
+
+    awk '/\/desc$/ { print }' "${tmpdir}/db-list" >"$desc_list"
+    if [ ! -s "$desc_list" ]; then
+        fail "repository database has no package descriptions: $repo_db"
+    fi
+
+    : >"$db_names"
+    : >"$db_files"
+    while IFS= read -r desc; do
+        bsdtar -xOf "$repo_db" "$desc" |
+            awk -v names="$db_names" -v files="$db_files" '
+                previous == "%NAME%" {
+                    print $0 >> names
+                }
+                previous == "%FILENAME%" {
+                    print $0 >> files
+                }
+                {
+                    previous = $0
+                }
+            '
+    done <"$desc_list"
+    sort -u -o "$db_names" "$db_names"
+    sort -u -o "$db_files" "$db_files"
+
+    awk '!/^[[:space:]]*($|#)/ { print $1 }' "$packages_file" | sort -u >"$required_names"
+
+    missing=$(
+        comm -23 "$required_names" "$db_names"
+    )
+    if [ -n "$missing" ]; then
+        while IFS= read -r pkg; do
+            [ -n "$pkg" ] && fail "missing package: $pkg"
+        done <<<"$missing"
+    fi
+
+    while IFS= read -r filename; do
+        if [ -n "$filename" ] && [ ! -f "${repo_dir}/${filename}" ]; then
+            fail "missing package file: ${repo_dir}/${filename}"
+        fi
+    done <"$db_files"
+fi
+
+if [ "$failures" -ne 0 ]; then
+    exit 1
+fi
+
+printf 'ok\n'
