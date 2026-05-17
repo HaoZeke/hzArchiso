@@ -3,6 +3,8 @@ set -euo pipefail
 
 profile=${1:-hzLinux}
 failures=0
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+aur_packages_file="${repo_root}/aurpkgs.txt"
 
 fail() {
     printf 'FAIL: %s\n' "$*" >&2
@@ -54,16 +56,36 @@ if [ "$failures" -eq 0 ]; then
     if command -v pacman >/dev/null 2>&1; then
         official_packages=$(pacman -Slq core extra 2>/dev/null | sort -u || true)
         if [ -n "$official_packages" ]; then
+            aur_packages=""
+            if [ -f "$aur_packages_file" ]; then
+                aur_packages=$(awk '!/^[[:space:]]*($|#)/ { print $1 }' "$aur_packages_file" | sort -u)
+            fi
             unavailable=$(
                 comm -23 \
-                    <(awk '!/^[[:space:]]*($|#)/ { print $1 }' "$profile/packages.x86_64" | sort -u) \
-                    <(printf '%s\n' "$official_packages")
+                    <(comm -23 \
+                        <(awk '!/^[[:space:]]*($|#)/ { print $1 }' "$profile/packages.x86_64" | sort -u) \
+                        <(printf '%s\n' "$official_packages")) \
+                    <(printf '%s\n' "$aur_packages")
             )
             if [ -n "$unavailable" ]; then
                 while IFS= read -r pkg; do
                     [ -n "$pkg" ] && fail "unavailable package: $pkg"
                 done <<<"$unavailable"
             fi
+        fi
+    fi
+
+    custom_packages=""
+    if [ -f "$aur_packages_file" ]; then
+        custom_packages=$(
+            comm -12 \
+                <(awk '!/^[[:space:]]*($|#)/ { print $1 }' "$profile/packages.x86_64" | sort -u) \
+                <(awk '!/^[[:space:]]*($|#)/ { print $1 }' "$aur_packages_file" | sort -u)
+        )
+    fi
+    if [ -n "$custom_packages" ]; then
+        if ! awk '/^[[:space:]]*\[hzarchiso\][[:space:]]*$/ { found = 1 } END { exit found ? 0 : 1 }' "$profile/pacman.conf"; then
+            fail "missing hzarchiso repository for custom packages"
         fi
     fi
 
@@ -83,20 +105,6 @@ if [ "$failures" -eq 0 ]; then
             done <<<"$obsolete_repos"
         fi
 
-        unsupported_repos=$(
-            awk '
-                /^[[:space:]]*\[(hzarchiso)\][[:space:]]*$/ {
-                    gsub(/^[[:space:]]*\[/, "", $0)
-                    gsub(/\][[:space:]]*$/, "", $0)
-                    print $0
-                }
-            ' "$pacman_conf"
-        )
-        if [ -n "$unsupported_repos" ]; then
-            while IFS= read -r repo; do
-                [ -n "$repo" ] && fail "unsupported repository enabled in $pacman_conf: $repo"
-            done <<<"$unsupported_repos"
-        fi
     done
 
     if grep -Eq "bios\.syslinux\.(mbr|eltorito)|uefi-(ia32|x64)\.grub\.(esp|eltorito)" "$profile/profiledef.sh"; then

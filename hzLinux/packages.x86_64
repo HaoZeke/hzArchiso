@@ -152,10 +152,8 @@ pipewire-jack
 pipewire-pulse
 polkit
 sway
-swaybg
 swayidle
 swayimg
-swaylock
 tailscale
 thermald
 tlp
@@ -216,9 +214,7 @@ unison
 
 # Screenshots
 flameshot
-grim
 satty
-slurp
 wf-recorder
 wl-clipboard
 
@@ -248,6 +244,28 @@ dunst
 
 # Privacy
 proxychains-ng
+
+# AUR/local repository payload
+ananicy
+cryptomator
+enpass-bin
+grim-git
+gnome-encfs-manager-bin
+i3status-rust-git
+lightdm-webkit-theme-aether
+libjffi
+linux-nitrous
+linux-nitrous-headers
+pcloud-drive
+networkmanager-dispatcher-chrony
+rtl88xxau-aircrack-dkms-git
+slurp-git
+swaybg-git
+swaylock-effects
+teiler-git
+xininfo-git
+windscribe-cli
+yay
 
 # Immediate usability
 firefox

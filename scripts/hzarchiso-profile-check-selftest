@@ -81,24 +81,21 @@ Include = /etc/pacman.d/mirrorlist
 EOF
 assert_fails "$community" 'obsolete repository'
 
-airootfs_repo="$tmpdir/airootfs-repo"
-make_profile "$airootfs_repo"
-mkdir -p "$airootfs_repo/airootfs/etc"
-cat >"$airootfs_repo/airootfs/etc/pacman.conf" <<'EOF'
-[options]
-Architecture = auto
+custom_missing_repo="$tmpdir/custom-missing-repo"
+make_profile "$custom_missing_repo"
+printf 'ananicy\n' >>"$custom_missing_repo/packages.x86_64"
+assert_fails "$custom_missing_repo" 'missing hzarchiso repository'
 
-[core]
-Include = /etc/pacman.d/mirrorlist
-
-[extra]
-Include = /etc/pacman.d/mirrorlist
+custom_repo="$tmpdir/custom-repo"
+make_profile "$custom_repo"
+printf 'ananicy\n' >>"$custom_repo/packages.x86_64"
+cat >>"$custom_repo/pacman.conf" <<'EOF'
 
 [hzarchiso]
 SigLevel = Never
-Server = https://localhost:8080
+Server = file:///repo/hzarchiso
 EOF
-assert_fails "$airootfs_repo" 'unsupported repository'
+assert_passes "$custom_repo"
 
 legacy_boot="$tmpdir/legacy-boot"
 make_profile "$legacy_boot"
