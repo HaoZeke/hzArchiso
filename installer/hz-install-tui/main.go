@@ -401,10 +401,10 @@ func (m model) valueFor(f field) string {
 	}
 }
 
-func (m model) View() string {
+func (m model) View() tea.View {
 	switch m.step {
 	case stepWelcome:
-		return panelStyle.Render(strings.Join([]string{
+		return tea.NewView(panelStyle.Render(strings.Join([]string{
 			titleStyle.Render("hzArchiso laptop installer"),
 			"",
 			"Encrypted Btrfs laptop profile with Sway, chezmoi, and Colemak defaults.",
@@ -413,10 +413,10 @@ func (m model) View() string {
 			"",
 			"Enter  continue",
 			"Esc    quit",
-		}, "\n")) + "\n"
+		}, "\n")) + "\n")
 	case stepInput:
 		spec := fields[m.field]
-		return panelStyle.Render(strings.Join([]string{
+		return tea.NewView(panelStyle.Render(strings.Join([]string{
 			titleStyle.Render("Install choices"),
 			progressLine(m.field),
 			"",
@@ -428,7 +428,7 @@ func (m model) View() string {
 			"Enter  accept",
 			"Tab    next",
 			"Esc    quit",
-		}, "\n")) + "\n"
+		}, "\n")) + "\n")
 	case stepReview:
 		rows := []string{
 			titleStyle.Render("Review install plan"),
@@ -455,9 +455,9 @@ func (m model) View() string {
 		if m.err != "" {
 			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
 		}
-		return panelStyle.Render(strings.Join(rows, "\n")) + "\n"
+		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
 	default:
-		return ""
+		return tea.NewView("")
 	}
 }
 
