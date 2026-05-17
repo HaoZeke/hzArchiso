@@ -181,6 +181,7 @@ const (
 	stepWelcome step = iota
 	stepInput
 	stepReview
+	stepInstallConfirm
 )
 
 type action int
@@ -291,8 +292,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.err = err.Error()
 					return m, nil
 				}
-				m.action = actionInstall
-				return m, tea.Quit
+				m.startInstallConfirmation()
+				return m, nil
 			}
 		case "e":
 			if m.step == stepReview {
@@ -304,7 +305,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.step != stepInput {
+	if m.step != stepInput && m.step != stepInstallConfirm {
 		return m, nil
 	}
 	var cmd tea.Cmd
@@ -331,8 +332,25 @@ func (m model) handleEnter() (tea.Model, tea.Cmd) {
 		}
 		m.action = actionRender
 		return m, tea.Quit
+	case stepInstallConfirm:
+		confirmation := strings.TrimSpace(m.input.Value())
+		if confirmation != m.cfg.targetDisk {
+			m.err = "confirmation did not match target disk"
+			m.input.SetValue("")
+			return m, nil
+		}
+		m.action = actionInstall
+		return m, tea.Quit
 	}
 	return m, nil
+}
+
+func (m *model) startInstallConfirmation() {
+	m.step = stepInstallConfirm
+	m.err = ""
+	m.input.Placeholder = m.cfg.targetDisk
+	m.input.SetValue("")
+	m.input.Focus()
 }
 
 func (m *model) loadField() {
@@ -451,6 +469,24 @@ func (m model) View() tea.View {
 			"i        install",
 			"e        edit",
 			"Esc      quit",
+		}
+		if m.err != "" {
+			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
+		}
+		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
+	case stepInstallConfirm:
+		rows := []string{
+			titleStyle.Render("Confirm destructive install"),
+			"",
+			warnStyle.Render("This will erase the selected disk."),
+			"",
+			kv("Disk", m.cfg.targetDisk),
+			"",
+			"Type the exact disk path to continue:",
+			m.input.View(),
+			"",
+			"Enter  install",
+			"Esc    quit",
 		}
 		if m.err != "" {
 			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
