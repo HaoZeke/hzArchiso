@@ -30,7 +30,10 @@ EOF
 assert_fails() {
     local repo_dir="$1" packages_file="$2" prebuilt_dir="$3" pattern="$4"
     local out
-    if out=$(HZARCHISO_AUR_PACKAGES_FILE="$packages_file" \
+    if out=$(PATH="${fake_bin}:$PATH" \
+        BASH_ENV="$helper" \
+        HZARCHISO_SELFTEST_LOG="$log_dir" \
+        HZARCHISO_AUR_PACKAGES_FILE="$packages_file" \
         HZARCHISO_ALLOW_ROOT_MAKEPKG=1 \
         HZARCHISO_AUR_RPC_FILE="${tmpdir}/aur-rpc.json" \
         HZARCHISO_PREBUILT_DIR="$prebuilt_dir" \
