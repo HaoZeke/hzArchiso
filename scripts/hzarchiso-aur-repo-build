@@ -52,6 +52,22 @@ package_files_in() {
         | sort
 }
 
+patch_linux_nitrous_source() {
+    local source_dir="$1"
+    local pkgbuild="${source_dir}/PKGBUILD"
+
+    test -f "$pkgbuild" || fail "missing linux-nitrous PKGBUILD: $pkgbuild"
+
+    sed -i \
+        -e 's/make LLVM=1 /make LLVM=1 LD=ld.bfd /g' \
+        -e 's/make LLVM=1$/make LLVM=1 LD=ld.bfd/g' \
+        -e 's/LD = ld\.lld/LD = ld.bfd/g' \
+        "$pkgbuild"
+
+    grep -q 'LD=ld.bfd' "$pkgbuild" || fail "linux-nitrous PKGBUILD did not set LD=ld.bfd"
+    grep -q 'LD = ld.bfd' "$pkgbuild" || fail "linux-nitrous headers Makefile did not set LD = ld.bfd"
+}
+
 prepare_source_dir() {
     local base="$1" source_dir="$2"
 
@@ -68,6 +84,9 @@ prepare() {
   patch -Np1 -i "${srcdir}/libffi-open-temp-exec-file.patch"
 }
 EOF
+            ;;
+        linux-nitrous)
+            patch_linux_nitrous_source "$source_dir"
             ;;
     esac
 }

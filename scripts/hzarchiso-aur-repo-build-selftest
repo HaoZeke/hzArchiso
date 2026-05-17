@@ -72,6 +72,25 @@ fi
 mkdir -p "$dest"
 printf '%s\n' "$base" >"${dest}/.hzarchiso-base"
 printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/git-clones"
+if [ "$base" = linux-nitrous ]; then
+    cat >"${dest}/PKGBUILD" <<'PKG'
+build() {
+  make LLVM=1 "$_defconfig"
+  make LLVM=1 LSMOD="$HOME/.config/modprobed.db" localmodconfig
+  KBUILD_BUILD_TIMESTAMP='' make LLVM=1 CC="ccache clang" ${makeflags} all
+  make LLVM=1 ${makeflags} all
+}
+
+_package() {
+  ZSTD_CLEVEL=19 make LLVM=1 INSTALL_MOD_PATH="${pkgdir}/usr" INSTALL_MOD_STRIP=1 \
+    DEPMOD=/does/not/exist modules_install
+}
+
+_package-headers() {
+  echo -e "\nLD = ld.lld" >> Makefile
+}
+PKG
+fi
 EOF
 chmod +x "${fake_bin}/git"
 
@@ -93,6 +112,14 @@ done
 cd "$source_dir"
 base=$(cat .hzarchiso-base)
 printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/makepkg-builds"
+if [ "$base" = linux-nitrous ]; then
+    grep -q 'make LLVM=1 LD=ld.bfd "$_defconfig"' PKGBUILD
+    grep -q 'make LLVM=1 LD=ld.bfd LSMOD=' PKGBUILD
+    grep -q 'make LLVM=1 LD=ld.bfd CC="ccache clang"' PKGBUILD
+    grep -q 'make LLVM=1 LD=ld.bfd ${makeflags} all' PKGBUILD
+    grep -q 'LD = ld.bfd' PKGBUILD
+    ! grep -q 'LD = ld.lld' PKGBUILD
+fi
 case "$base" in
     split-base)
         hzarchiso_write_pkg "$PWD" split-a
@@ -132,6 +159,7 @@ packages_file="${tmpdir}/aurpkgs.txt"
 cat >"$packages_file" <<'EOF'
 split-a
 split-b
+linux-nitrous
 legacy-local
 binary-only
 EOF
@@ -140,10 +168,11 @@ cat >"${tmpdir}/aur-rpc.json" <<'EOF'
 {
   "version": 5,
   "type": "info",
-  "resultcount": 2,
+  "resultcount": 3,
   "results": [
     { "Name": "split-a", "PackageBase": "split-base" },
-    { "Name": "split-b", "PackageBase": "split-base" }
+    { "Name": "split-b", "PackageBase": "split-base" },
+    { "Name": "linux-nitrous", "PackageBase": "linux-nitrous" }
   ]
 }
 EOF
