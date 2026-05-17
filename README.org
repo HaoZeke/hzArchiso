@@ -1,28 +1,92 @@
 * About
-This is a custom archlinux live-usb mainly meant for setting up encrypted
-installations. This uses [[swaywm.org/][sway]] and [[https://github.com/thestinger/termite][termite]], for maximum cross compatibility.
+This is a custom Arch Linux live USB for setting up encrypted laptop
+installations. The live environment boots into a Sway-capable system with
+PipeWire, wlroots desktop portals, laptop power tooling, and a terminal
+installer named ~hz-install-tui~.
+
+The installer is intentionally a TUI instead of a graphical installer. It
+collects the install choices, reviews the destructive disk plan, asks for an
+exact disk confirmation, then hands the generated configuration to
+~archinstall~. The shell backend ~hz-install~ remains available as a scriptable
+fallback.
+
 #+BEGIN_QUOTE
 hzlinarch=hzlinarch
 
 ^-- USERNAME=PASSWORD
 #+END_QUOTE
 
-Note that on some systems, the login manager may be buggy, in these cases switch to a TTY with ~CTRL-ALT-F3~, login at the terminal, and run ~sway~ to get to a GUI.
+The live greeter is ~greetd~ with ~tuigreet~. If the greeter is unavailable on
+specific hardware, switch to another TTY with ~CTRL-ALT-F3~, log in with the
+credentials above, and run ~sway~.
 
 ** Methodology
-Instead of using the standard ~archiso~ package, since I required AUR packages
-and preferred an offline installation, this uses [[https://wiki.archlinux.org/index.php/Archiso_offline][archiso-offline]]. Additionally,
-the AUR packages are handled with the excellent [[https://github.com/cassava/repoctl][repoctl]]. More details in a post
-soon.
-#+begin_quote
-As of V, now uses the normal ~archiso~
-#+end_quote
+The profile uses the standard ~archiso~ workflow and official Arch repositories
+for the live image. Private, AUR-heavy, and machine-specific packages are left to
+the post-install chezmoi bootstrap instead of being baked into the ISO.
 
 ** Software Included
-The exact list of packages added is present in ~packages.x86_64~
-The basic end-user packages and the intended usage is described here.
+The exact live package list is in ~hzLinux/packages.x86_64~. The installed
+system package set is rendered by ~hzLinux/airootfs/usr/local/bin/hz-install~
+into the ~archinstall~ JSON files.
+
+The current profile emphasizes:
+
+- encrypted Btrfs install flow with ~linux~ and ~linux-lts~
+- Sway, Waybar, foot, fuzzel, greetd, and tuigreet
+- PipeWire, WirePlumber, ~xdg-desktop-portal~, and
+  ~xdg-desktop-portal-wlr~
+- screenshot and recording tools: grim, slurp, satty, wf-recorder,
+  wl-clipboard, cliphist
+- laptop/rescue tooling: NetworkManager, tailscale, fwupd, smartmontools,
+  nvme-cli, tlp, thermald, zram-generator
+- bootstrap tooling: chezmoi, age, pass, git, openssh
+
+* Installer
+Run the TUI from the live environment:
+
+#+begin_src bash
+hz-install-tui
+#+end_src
+
+Render the same install JSON without installing:
+
+#+begin_src bash
+hz-install-tui --dry-run \
+  --target-disk /dev/nvme0n1 \
+  --hostname rgx1gen11 \
+  --username rgoswami \
+  --timezone America/Chicago \
+  --console-keymap us \
+  --chezmoi-key-layout colemak \
+  --machine-name rgx1gen11 \
+  --output-dir /tmp/hz-install
+#+end_src
+
+The fallback backend can be used directly:
+
+#+begin_src bash
+hz-install --dry-run --target-disk /dev/nvme0n1 --output-dir /tmp/hz-install
+#+end_src
+
+Non-dry-run installs require root, a whole-disk block device, exact disk
+confirmation, root/user passwords, and a disk encryption password.
+
+* Build Steps
+Build and validation should run on an Arch builder or in an Arch container:
+
+#+begin_src bash
+make tui-check
+make check
+make build
+#+end_src
+
+The ~build~ target compiles ~hz-install-tui~ into
+~hzLinux/airootfs/usr/local/bin/hz-install-tui~, validates the profile, and runs
+~mkarchiso~.
+
 ** Size
-Just cuz I can, this lists the size as I make changes:
+Historical size notes:
 
 | Package            | Size (MB) |
 | base               |     ~ 567 |
@@ -40,54 +104,6 @@ Just cuz I can, this lists the size as I make changes:
 | release_III        |     1.2GB |
 | release_V          |     1.6GB |
 | release_V.I        |     1.7GB |
-** Configuration
-*** Pacman
-The pacman mirrors are generated with ~reflector~, but ~reflector~ is
-not installed on the installation media.
-*** Chrony
-This is configured to work with a dispatcher script.
-*** AUR
-The aur packages need to be configured in the main hzLinux folder as well as the
-work folder.
-These should work on the system, not relative to the liveUSB root.
-* Build Steps
-** AUR
-In general, to simply update the AUR packages before using the ~Makefile~ just
-run the following:
-#+BEGIN_SRC bash
-## Once
-repoctl conf new ~/pkgs/hzarchiso.db.tar.gz
-repoctl reset
-## Separate terminal
-repoctl serve
-## Everytime
-mkdir tmpUpd && cd tmpUpd
-for pkg in $(cat ../aurpkgs.txt); do
-    (
-        repoctl down "$pkg"
-    )
-done
-for dir in *; do cd $dir; makepkg -cs && repoctl add *.pkg.tar.zst && cd ../  && rm -rf $dir || cd ../; done
-cd ../ && rm -rf tmpUpd
-#+END_SRC
-** Mirrorlist
-This is basically just the normal ~reflector~ stuff. As usual, assume
-~buildRoot~ is where you have this repository cloned.
-#+BEGIN_SRC bash
-export buildRoot=$HOME/archBuilder
-sudo reflector --latest 30 --number 20 --sort rate --protocol http --save $buildRoot/hzArchiso/hzLinux/airootfs/etc/pacman.d/mirrorlist
-#+END_SRC
-Do not be surprised by ~sudo~, since the location has the same permissions as
-the actual root folder.
-** Build
-The ~makefile~ is not needed anymore, as of version 5.
-#+begin_src bash
-export application="HaoZeke's ArchLinux"
-export isoName='hzlinux_V'
-export label='HZLIN_V-211222'
-export publisher='Rohit Goswami (HaoZeke) <rohit.goswami[at]aol.com>'
-sudo mkarchiso -A $application -L $label -P $publisher -v hzLinux
-#+end_src
 * TODO List
 *** [X] Add gparted
 *** [ ] Add rofi
