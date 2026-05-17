@@ -21,8 +21,12 @@ check:
 tui:
 	cd $(installerDir) && go build -buildvcs=false -trimpath -ldflags="-s -w" -o ../../$(tuiBin) .
 
+.PHONY: tui-test
+tui-test:
+	cd $(installerDir) && go test ./...
+
 .PHONY: tui-check
-tui-check: tui
+tui-check: tui-test tui
 	./scripts/hz-install-tui-selftest
 
 .PHONY: build
