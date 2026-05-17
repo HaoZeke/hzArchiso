@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_disk=""
+hostname="rgx1gen11"
+username="rgoswami"
+timezone="America/Chicago"
+console_keymap="us"
+chezmoi_key_layout="colemak"
+machine_name="rgx1gen11"
+output_dir="/run/hz-install"
+dry_run=0
+
+usage() {
+    cat <<'USAGE'
+usage: hz-install --target-disk /dev/DISK [options]
+
+Options:
+  --dry-run                 Render archinstall JSON but do not install.
+  --target-disk PATH        Whole disk to partition.
+  --hostname NAME           Installed hostname.
+  --username NAME           Primary sudo user.
+  --timezone ZONE           Installed timezone.
+  --console-keymap NAME     Console keymap passed to archinstall.
+  --chezmoi-key-layout NAME Chezmoi key_layout value.
+  --machine-name NAME       Chezmoi machine_name value.
+  --output-dir PATH         Directory for rendered JSON.
+  -h, --help                Show this help.
+USAGE
+}
+
+die() {
+    printf 'hz-install: %s\n' "$*" >&2
+    exit 1
+}
+
+need() {
+    command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --dry-run)
+            dry_run=1
+            shift
+            ;;
+        --target-disk)
+            target_disk=${2:-}
+            shift 2
+            ;;
+        --hostname)
+            hostname=${2:-}
+            shift 2
+            ;;
+        --username)
+            username=${2:-}
+            shift 2
+            ;;
+        --timezone)
+            timezone=${2:-}
+            shift 2
+            ;;
+        --console-keymap)
+            console_keymap=${2:-}
+            shift 2
+            ;;
+        --chezmoi-key-layout)
+            chezmoi_key_layout=${2:-}
+            shift 2
+            ;;
+        --machine-name)
+            machine_name=${2:-}
+            shift 2
+            ;;
+        --output-dir)
+            output_dir=${2:-}
+            shift 2
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            die "unknown option: $1"
+            ;;
+    esac
+done
+
+[ -n "$target_disk" ] || die "--target-disk is required"
+[[ "$target_disk" == /dev/* ]] || die "--target-disk must be an absolute /dev path"
+[[ "$hostname" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,62}$ ]] || die "invalid hostname: $hostname"
+[[ "$username" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] || die "invalid username: $username"
+[ -n "$output_dir" ] || die "--output-dir is required"
+
+need jq
+
+mkdir -p "$output_dir"
+chmod 700 "$output_dir"
+
+config_path="$output_dir/user_configuration.json"
+creds_path="$output_dir/user_credentials.json"
+
+render_config() {
+    jq -n \
+        --arg disk "$target_disk" \
+        --arg hostname "$hostname" \
+        --arg username "$username" \
+        --arg timezone "$timezone" \
+        --arg console_keymap "$console_keymap" \
+        --arg chezmoi_key_layout "$chezmoi_key_layout" \
+        --arg machine_name "$machine_name" \
+        '
+        {
+          "additional-repositories": [],
+          "archinstall-language": "English",
+          "audio_config": null,
+          "bootloader": "Systemd-boot",
+          "bootloader_config": {
+            "bootloader": "Systemd-boot",
+            "uki": false,
+            "removable": false
+          },
+          "debug": false,
+          "disk_config": {
+            "config_type": "manual_partitioning",
+            "device_modifications": [
+              {
+                "device": $disk,
+                "wipe": true,
+                "partitions": [
+                  {
+                    "btrfs": [],
+                    "flags": ["boot"],
+                    "fs_type": "fat32",
+                    "length": {
+                      "sector_size": null,
+                      "total_size": null,
+                      "unit": "MiB",
+                      "value": 1024
+                    },
+                    "mount_options": [],
+                    "mountpoint": "/boot",
+                    "obj_id": "hz-efi",
+                    "start": {
+                      "sector_size": null,
+                      "total_size": null,
+                      "unit": "MiB",
+                      "value": 1
+                    },
+                    "status": "create",
+                    "type": "primary"
+                  },
+                  {
+                    "btrfs": [
+                      {"mountpoint": "/", "name": "@"},
+                      {"mountpoint": "/home", "name": "@home"},
+                      {"mountpoint": "/.snapshots", "name": "@snapshots"},
+                      {"mountpoint": "/var/log", "name": "@var_log"},
+                      {"mountpoint": "/var/cache/pacman/pkg", "name": "@cache"}
+                    ],
+                    "flags": [],
+                    "fs_type": "btrfs",
+                    "length": {
+                      "sector_size": null,
+                      "total_size": null,
+                      "unit": "%",
+                      "value": 100
+                    },
+                    "mount_options": ["compress=zstd", "noatime"],
+                    "mountpoint": null,
+                    "obj_id": "hz-root",
+                    "start": {
+                      "sector_size": null,
+                      "total_size": null,
+                      "unit": "MiB",
+                      "value": 1025
+                    },
+                    "status": "create",
+                    "type": "primary"
+                  }
+                ]
+              }
+            ]
+          },
+          "disk_encryption": {
+            "encryption_type": "luks",
+            "partitions": ["hz-root"]
+          },
+          "hostname": $hostname,
+          "kernels": ["linux", "linux-lts"],
+          "locale_config": {
+            "kb_layout": $console_keymap,
+            "sys_enc": "UTF-8",
+            "sys_lang": "en_US"
+          },
+          "mirror_config": null,
+          "network_config": {"type": "nm"},
+          "no_pkg_lookups": false,
+          "ntp": true,
+          "offline": false,
+          "packages": [
+            "base-devel",
+            "git",
+            "openssh",
+            "networkmanager",
+            "sway",
+            "swayidle",
+            "swaylock",
+            "waybar",
+            "foot",
+            "rofi-wayland",
+            "grim",
+            "slurp",
+            "wl-clipboard",
+            "brightnessctl",
+            "pamixer",
+            "playerctl",
+            "polkit",
+            "pipewire",
+            "wireplumber",
+            "pipewire-pulse",
+            "chezmoi",
+            "age",
+            "pass",
+            "kanata",
+            "jq",
+            "dkms",
+            "linux-headers",
+            "linux-lts-headers"
+          ],
+          "parallel downloads": 5,
+          "profile_config": null,
+          "script": "guided",
+          "silent": false,
+          "swap": true,
+          "timezone": $timezone,
+          "version": "2.6.0",
+          "custom-commands": [
+            "systemctl enable NetworkManager.service",
+            "install -d -m 0755 /home/\($username)/.config/chezmoi",
+            "printf '\''[data]\ndisplay_manager = \"sway\"\nkey_layout = \"\($chezmoi_key_layout)\"\nencrypted = \"yes\"\nmachine_name = \"\($machine_name)\"\nsetup_mamba = \"no\"\nsetup_pixi = \"yes\"\nsetup_spack = \"no\"\nsetup_nix = \"no\"\nuse_rust = \"yes\"\nhave_cuda = \"no\"\n'\'' > /home/\($username)/.config/chezmoi/chezmoi.toml",
+            "chown -R \($username):\($username) /home/\($username)/.config",
+            "sudo -u \($username) chezmoi init --apply HaoZeke --branch chezmoi"
+          ]
+        }
+        '
+}
+
+render_creds() {
+    local root_password="$1"
+    local user_password="$2"
+    local disk_password="$3"
+    jq -n \
+        --arg username "$username" \
+        --arg root_password "$root_password" \
+        --arg user_password "$user_password" \
+        --arg disk_password "$disk_password" \
+        '{
+          "root_enc_password": $root_password,
+          "disk_encryption_password": $disk_password,
+          "users": [
+            {
+              "username": $username,
+              "enc_password": $user_password,
+              "sudo": true
+            }
+          ]
+        }'
+}
+
+if [ "$dry_run" -eq 1 ]; then
+    render_config >"$config_path"
+    render_creds "CHANGEME" "CHANGEME" "CHANGEME" >"$creds_path"
+    chmod 600 "$config_path" "$creds_path"
+    printf 'rendered %s\n' "$config_path"
+    printf 'rendered %s\n' "$creds_path"
+    exit 0
+fi
+
+[ "$(id -u)" -eq 0 ] || die "non-dry-run install must run as root"
+[ -b "$target_disk" ] || die "target disk is not a block device: $target_disk"
+
+printf 'This will erase %s. Type the exact disk path to continue: ' "$target_disk" >&2
+read -r confirm || die "confirmation failed"
+[ "$confirm" = "$target_disk" ] || die "confirmation did not match target disk"
+
+read -r -s -p "Root password: " root_password
+printf '\n' >&2
+read -r -s -p "User password for ${username}: " user_password
+printf '\n' >&2
+read -r -s -p "Disk encryption password: " disk_password
+printf '\n' >&2
+
+render_config >"$config_path"
+render_creds "$root_password" "$user_password" "$disk_password" >"$creds_path"
+chmod 600 "$config_path" "$creds_path"
+
+exec archinstall --config "$config_path" --creds "$creds_path"

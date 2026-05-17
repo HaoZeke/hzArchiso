@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+installer="${repo_root}/hzLinux/airootfs/usr/local/bin/hz-install"
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+assert_jq() {
+    local file="$1" filter="$2" message="$3"
+    jq -e "$filter" "$file" >/dev/null || fail "$message"
+}
+
+command -v jq >/dev/null 2>&1 || fail "jq is required for this selftest"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+out="$tmpdir/rendered"
+"$installer" \
+    --dry-run \
+    --target-disk /dev/testdisk \
+    --hostname rgx1gen11 \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --output-dir "$out" >/dev/null
+
+config="$out/user_configuration.json"
+creds="$out/user_credentials.json"
+
+test -s "$config" || fail "missing rendered user_configuration.json"
+test -s "$creds" || fail "missing rendered user_credentials.json"
+
+jq empty "$config" >/dev/null || fail "config is not valid JSON"
+jq empty "$creds" >/dev/null || fail "credentials are not valid JSON"
+
+assert_jq "$config" '.hostname == "rgx1gen11"' "hostname was not rendered"
+assert_jq "$config" '.timezone == "America/Chicago"' "timezone was not rendered"
+assert_jq "$config" '.bootloader_config.bootloader == "Systemd-boot"' "bootloader was not rendered"
+assert_jq "$config" '.disk_config.device_modifications[0].device == "/dev/testdisk"' "target disk was not rendered"
+assert_jq "$config" '.disk_encryption.encryption_type == "luks"' "LUKS encryption was not rendered"
+assert_jq "$config" '.disk_encryption.partitions[0] == "hz-root"' "root encryption target was not rendered"
+assert_jq "$config" '.kernels | index("linux")' "linux kernel missing"
+assert_jq "$config" '.kernels | index("linux-lts")' "linux-lts kernel missing"
+assert_jq "$config" '.packages | index("chezmoi")' "chezmoi package missing"
+assert_jq "$config" '.packages | index("kanata")' "kanata package missing"
+assert_jq "$config" '.["custom-commands"][] | contains("chezmoi init")' "chezmoi bootstrap command missing"
+assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
+assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
+
+if "$installer" --target-disk /dev/testdisk --output-dir "$tmpdir/nope" </dev/null >/dev/null 2>&1; then
+    fail "non-dry-run install should refuse without confirmation"
+fi
+
+printf 'ok\n'

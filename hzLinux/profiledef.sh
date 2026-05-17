@@ -20,6 +20,7 @@ file_permissions=(
   ["/root/.automated_script.sh"]="0:0:755"
   ["/root/customize_airootfs.sh"]="0:0:755"
   ["/etc/systemd/scripts/choose-mirror"]="0:0:755"
+  ["/usr/local/bin/hz-install"]="0:0:755"
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
