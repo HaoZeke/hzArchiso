@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_root=""
+username=""
+bundle="/opt/hzarchiso/private/profile.tar.openssl"
+mode="prompt"
+
+usage() {
+    cat <<'USAGE'
+usage: hz-private-bootstrap --target-root /mnt --username USER [options]
+
+Options:
+  --bundle PATH      Encrypted bundle path.
+  --mode MODE        none, prompt, or auto.
+  -h, --help         Show this help.
+
+Passphrase sources, in priority order:
+  HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE
+  HZ_PRIVATE_BUNDLE_PASSPHRASE
+  HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD
+USAGE
+}
+
+die() {
+    printf 'hz-private-bootstrap: %s\n' "$*" >&2
+    exit 1
+}
+
+need() {
+    command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+has_passphrase_source() {
+    [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE:-}" ] \
+        || [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE:-}" ] \
+        || [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD:-}" ]
+}
+
+make_pass_file() {
+    local pass_file answer
+    if [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE:-}" ]; then
+        [ -r "$HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE" ] || die "passphrase file is not readable"
+        printf '%s\n' "$HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE"
+        return 0
+    fi
+
+    pass_file=$(mktemp)
+    chmod 0600 "$pass_file"
+    if [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE:-}" ]; then
+        printf '%s\n' "$HZ_PRIVATE_BUNDLE_PASSPHRASE" >"$pass_file"
+    elif [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD:-}" ]; then
+        sh -c "$HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD" >"$pass_file"
+    elif [ -t 0 ]; then
+        read -r -s -p "Private profile bundle passphrase: " answer
+        printf '\n' >&2
+        printf '%s\n' "$answer" >"$pass_file"
+    else
+        rm -f "$pass_file"
+        die "no private bundle passphrase source available"
+    fi
+    printf '%s\n' "$pass_file"
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --target-root)
+            target_root=${2:-}
+            shift 2
+            ;;
+        --username)
+            username=${2:-}
+            shift 2
+            ;;
+        --bundle)
+            bundle=${2:-}
+            shift 2
+            ;;
+        --mode)
+            mode=${2:-}
+            shift 2
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            die "unknown option: $1"
+            ;;
+    esac
+done
+
+case "$mode" in
+    none)
+        printf 'private profile bootstrap disabled\n'
+        exit 0
+        ;;
+    prompt | auto)
+        ;;
+    *)
+        die "invalid mode: $mode"
+        ;;
+esac
+
+[ -n "$target_root" ] || die "--target-root is required"
+[ -d "$target_root" ] || die "target root does not exist: $target_root"
+[[ "$username" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] || die "invalid username: $username"
+
+if [ ! -f "$bundle" ]; then
+    if [ "$mode" = "prompt" ]; then
+        printf 'private profile bundle not found; skipping: %s\n' "$bundle"
+        exit 0
+    fi
+    die "private profile bundle not found: $bundle"
+fi
+
+if [ "$mode" = "prompt" ] && ! has_passphrase_source; then
+    if [ ! -t 0 ]; then
+        printf 'private profile passphrase unavailable on noninteractive prompt; skipping\n'
+        exit 0
+    fi
+    read -r -p "Apply encrypted private profile bundle? [y/N] " answer
+    case "$answer" in
+        y | Y | yes | YES)
+            ;;
+        *)
+            printf 'private profile bootstrap skipped\n'
+            exit 0
+            ;;
+    esac
+fi
+
+need openssl
+need tar
+
+pass_file=$(make_pass_file)
+cleanup_pass=0
+if [ "${HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE:-}" != "$pass_file" ]; then
+    cleanup_pass=1
+fi
+
+run_root=${HZ_PRIVATE_BOOTSTRAP_RUN_DIR:-/run}
+install -d -m 0700 "$run_root"
+work_dir=$(mktemp -d "${run_root%/}/hz-private-bootstrap.XXXXXX")
+cleanup() {
+    rm -rf "$work_dir"
+    [ "$cleanup_pass" -eq 0 ] || rm -f "$pass_file"
+}
+trap cleanup EXIT
+
+if ! openssl enc -d -aes-256-cbc -pbkdf2 -pass "file:$pass_file" -in "$bundle" \
+    | tar -C "$work_dir" -xf -; then
+    die "could not decrypt or extract private profile bundle"
+fi
+
+[ -f "$work_dir/manifest.json" ] || die "private profile bundle missing manifest.json"
+[ -f "$work_dir/install.sh" ] || die "private profile bundle missing install.sh"
+
+HZ_TARGET_ROOT=$target_root \
+HZ_TARGET_USER=$username \
+HZ_BUNDLE_DIR=$work_dir \
+    bash "$work_dir/install.sh"
+
+printf 'private profile bootstrap applied\n'
