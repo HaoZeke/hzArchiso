@@ -15,7 +15,11 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-const defaultBackend = "/usr/local/bin/hz-install"
+const (
+	defaultBackend  = "/usr/local/bin/hz-install"
+	profileRGX1     = "rgx1gen11"
+	profileAM5Terra = "rgam5terra"
+)
 
 var (
 	hostnameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,62}$`)
@@ -38,6 +42,7 @@ var (
 
 type installConfig struct {
 	targetDisk       string
+	profile          string
 	hostname         string
 	username         string
 	timezone         string
@@ -50,12 +55,13 @@ type installConfig struct {
 
 func defaultConfig() installConfig {
 	return installConfig{
-		hostname:         "rgx1gen11",
+		profile:          profileRGX1,
+		hostname:         profileRGX1,
 		username:         "rgoswami",
 		timezone:         "America/Chicago",
 		consoleKeymap:    "us",
 		chezmoiKeyLayout: "colemak",
-		machineName:      "rgx1gen11",
+		machineName:      profileRGX1,
 		outputDir:        "/run/hz-install",
 	}
 }
@@ -105,6 +111,7 @@ func parseArgs(args []string, output io.Writer) (installConfig, error) {
 	fs := flag.NewFlagSet("hz-install-tui", flag.ContinueOnError)
 	fs.SetOutput(output)
 	fs.BoolVar(&cfg.dryRun, "dry-run", false, "render archinstall JSON but do not install")
+	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile: rgx1gen11 or rgam5terra")
 	fs.StringVar(&cfg.targetDisk, "target-disk", cfg.targetDisk, "whole disk to partition")
 	fs.StringVar(&cfg.hostname, "hostname", cfg.hostname, "installed hostname")
 	fs.StringVar(&cfg.username, "username", cfg.username, "primary sudo user")
@@ -119,11 +126,20 @@ func parseArgs(args []string, output io.Writer) (installConfig, error) {
 	if fs.NArg() != 0 {
 		return cfg, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
 	}
+	seen := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) {
+		seen[f.Name] = true
+	})
+	if err := applyProfileDefaults(&cfg, !seen["hostname"], !seen["machine-name"]); err != nil {
+		return cfg, err
+	}
 	return cfg, nil
 }
 
 func validateConfig(cfg installConfig) error {
 	switch {
+	case !validProfile(cfg.profile):
+		return fmt.Errorf("unsupported profile: %s", cfg.profile)
 	case cfg.targetDisk == "":
 		return errors.New("--target-disk is required")
 	case !strings.HasPrefix(cfg.targetDisk, "/dev/"):
@@ -147,17 +163,52 @@ func validateConfig(cfg installConfig) error {
 	}
 }
 
+func validProfile(profile string) bool {
+	switch profile {
+	case profileRGX1, profileAM5Terra:
+		return true
+	default:
+		return false
+	}
+}
+
+func profileDefaultName(profile string) (string, bool) {
+	switch profile {
+	case profileRGX1:
+		return profileRGX1, true
+	case profileAM5Terra:
+		return profileAM5Terra, true
+	default:
+		return "", false
+	}
+}
+
+func applyProfileDefaults(cfg *installConfig, setHostname, setMachineName bool) error {
+	defaultName, ok := profileDefaultName(cfg.profile)
+	if !ok {
+		return fmt.Errorf("unsupported profile: %s", cfg.profile)
+	}
+	if setHostname {
+		cfg.hostname = defaultName
+	}
+	if setMachineName {
+		cfg.machineName = defaultName
+	}
+	return nil
+}
+
 func runBackend(cfg installConfig, dryRun bool) error {
 	backend := os.Getenv("HZ_INSTALL_BACKEND")
 	if backend == "" {
 		backend = defaultBackend
 	}
 
-	args := make([]string, 0, 18)
+	args := make([]string, 0, 20)
 	if dryRun {
 		args = append(args, "--dry-run")
 	}
 	args = append(args,
+		"--profile", cfg.profile,
 		"--target-disk", cfg.targetDisk,
 		"--hostname", cfg.hostname,
 		"--username", cfg.username,
@@ -195,7 +246,8 @@ const (
 type field int
 
 const (
-	fieldDisk field = iota
+	fieldProfile field = iota
+	fieldDisk
 	fieldHostname
 	fieldUsername
 	fieldTimezone
@@ -213,13 +265,14 @@ type fieldSpec struct {
 }
 
 var fields = []fieldSpec{
+	{label: "Profile", help: "Machine profile for hardware packages and defaults.", placeholder: "rgx1gen11 or rgam5terra"},
 	{label: "Target disk", help: "Whole disk path. This installer wipes it.", placeholder: "/dev/nvme0n1"},
-	{label: "Hostname", help: "Installed system hostname.", placeholder: "rgx1gen11"},
+	{label: "Hostname", help: "Installed system hostname.", placeholder: profileRGX1},
 	{label: "Username", help: "Primary sudo user.", placeholder: "rgoswami"},
 	{label: "Timezone", help: "IANA timezone.", placeholder: "America/Chicago"},
 	{label: "Console keymap", help: "Linux console keymap.", placeholder: "us"},
 	{label: "Chezmoi layout", help: "Chezmoi key_layout value.", placeholder: "colemak"},
-	{label: "Machine name", help: "Chezmoi machine_name value.", placeholder: "rgx1gen11"},
+	{label: "Machine name", help: "Chezmoi machine_name value.", placeholder: profileRGX1},
 	{label: "Output dir", help: "Directory for archinstall JSON.", placeholder: "/run/hz-install"},
 }
 
@@ -363,6 +416,10 @@ func (m *model) loadField() {
 func (m *model) saveField() {
 	value := strings.TrimSpace(m.input.Value())
 	switch m.field {
+	case fieldProfile:
+		oldProfile := m.cfg.profile
+		m.cfg.profile = value
+		m.applyInteractiveProfileDefaults(oldProfile)
 	case fieldDisk:
 		m.cfg.targetDisk = value
 	case fieldHostname:
@@ -382,6 +439,23 @@ func (m *model) saveField() {
 	}
 }
 
+func (m *model) applyInteractiveProfileDefaults(oldProfile string) {
+	newDefault, ok := profileDefaultName(m.cfg.profile)
+	if !ok {
+		return
+	}
+	oldDefault, ok := profileDefaultName(oldProfile)
+	if !ok {
+		oldDefault = ""
+	}
+	if m.cfg.hostname == "" || m.cfg.hostname == oldDefault {
+		m.cfg.hostname = newDefault
+	}
+	if m.cfg.machineName == "" || m.cfg.machineName == oldDefault {
+		m.cfg.machineName = newDefault
+	}
+}
+
 func (m *model) nextField() {
 	if m.field < fieldCount-1 {
 		m.field++
@@ -398,6 +472,8 @@ func (m *model) previousField() {
 
 func (m model) valueFor(f field) string {
 	switch f {
+	case fieldProfile:
+		return m.cfg.profile
 	case fieldDisk:
 		return m.cfg.targetDisk
 	case fieldHostname:
@@ -423,9 +499,9 @@ func (m model) View() tea.View {
 	switch m.step {
 	case stepWelcome:
 		return tea.NewView(panelStyle.Render(strings.Join([]string{
-			titleStyle.Render("hzArchiso laptop installer"),
+			titleStyle.Render("hzArchiso machine installer"),
 			"",
-			"Encrypted Btrfs laptop profile with Sway, chezmoi, and Colemak defaults.",
+			"Encrypted Btrfs machine profiles with Sway, chezmoi, and Colemak defaults.",
 			"",
 			warnStyle.Render("This installer is destructive once you confirm a target disk."),
 			"",
@@ -451,6 +527,7 @@ func (m model) View() tea.View {
 		rows := []string{
 			titleStyle.Render("Review install plan"),
 			"",
+			kv("Profile", m.cfg.profile),
 			kv("Disk", m.cfg.targetDisk),
 			kv("Hostname", m.cfg.hostname),
 			kv("User", m.cfg.username),
