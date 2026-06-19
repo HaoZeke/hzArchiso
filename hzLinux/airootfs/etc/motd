@@ -8,7 +8,7 @@ Ethernet, WLAN and WWAN interfaces using DHCP should work automatically.
 After connecting to the internet, the installation guide can be accessed
 via the convenience script [35mInstallation_guide[0m.
 
-Run [35mhz-install-tui[0m for the hzArchiso laptop installer.
+Run [35mhz-install-tui[0m for the hzArchiso machine-profile installer.
 Run [35mhz-install --dry-run --target-disk /dev/DISK[0m to render
 archinstall JSON without installing.
 

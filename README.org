@@ -1,8 +1,8 @@
 * About
-This is a custom Arch Linux live USB for setting up encrypted laptop
+This is a custom Arch Linux live USB for setting up encrypted machine
 installations. The live environment boots into a Sway-capable system with
-PipeWire, wlroots desktop portals, laptop power tooling, and a terminal
-installer named ~hz-install-tui~.
+PipeWire, wlroots desktop portals, rescue tooling, and a terminal installer
+named ~hz-install-tui~.
 
 The installer is intentionally a TUI instead of a graphical installer. It
 collects the install choices, reviews the destructive disk plan, asks for an
@@ -19,6 +19,14 @@ hzlinarch=hzlinarch
 The live greeter is ~greetd~ with ~tuigreet~. If the greeter is unavailable on
 specific hardware, switch to another TTY with ~CTRL-ALT-F3~, log in with the
 credentials above, and run ~sway~.
+
+Target profiles are selected with ~--profile~:
+
+- ~rgx1gen11~ keeps the ThinkPad laptop defaults and remains the default when
+  no profile is specified.
+- ~rgam5terra~ selects the Terra AM5 desktop target with AMD microcode,
+  NVIDIA open DKMS drivers, NVIDIA userspace/OpenCL tooling, and tuned. It
+  omits laptop-only target packages such as ~tlp~, ~tlp-rdw~, and ~thermald~.
 
 ** Methodology
 The profile uses the standard ~archiso~ workflow. Daily-driver packages from
@@ -46,6 +54,8 @@ The current profile emphasizes:
   tools, Flatpak
 - laptop/rescue tooling: NetworkManager, tailscale, fwupd, smartmontools,
   nvme-cli, tlp, thermald, zram-generator
+- rgam5terra target tooling: amd-ucode, nvidia-open-dkms, nvidia-utils,
+  nvidia-settings, opencl-nvidia, tuned, tuned-ppd
 - bootstrap and development tooling: chezmoi, age, pass, git, openssh, gh,
   glab, podman, build/debug tools
 - AUR/local payload: linux-nitrous, linux-nitrous-headers, Enpass, pCloud,
@@ -63,6 +73,7 @@ Render the same install JSON without installing:
 
 #+begin_src bash
 hz-install-tui --dry-run \
+  --profile rgx1gen11 \
   --target-disk /dev/nvme0n1 \
   --hostname rgx1gen11 \
   --username rgoswami \
@@ -77,6 +88,15 @@ The fallback backend can be used directly:
 
 #+begin_src bash
 hz-install --dry-run --target-disk /dev/nvme0n1 --output-dir /tmp/hz-install
+#+end_src
+
+Render the Terra target profile:
+
+#+begin_src bash
+hz-install --dry-run \
+  --profile rgam5terra \
+  --target-disk /dev/nvme0n1 \
+  --output-dir /tmp/hz-install-rgam5terra
 #+end_src
 
 Non-dry-run installs require root, a whole-disk block device, exact disk
