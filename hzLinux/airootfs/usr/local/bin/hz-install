@@ -2,12 +2,15 @@
 set -euo pipefail
 
 target_disk=""
+profile="rgx1gen11"
 hostname="rgx1gen11"
 username="rgoswami"
 timezone="America/Chicago"
 console_keymap="us"
 chezmoi_key_layout="colemak"
 machine_name="rgx1gen11"
+hostname_set=0
+machine_name_set=0
 output_dir="/run/hz-install"
 dry_run=0
 
@@ -17,6 +20,7 @@ usage: hz-install --target-disk /dev/DISK [options]
 
 Options:
   --dry-run                 Render archinstall JSON but do not install.
+  --profile NAME            Machine profile: rgx1gen11 or rgam5terra.
   --target-disk PATH        Whole disk to partition.
   --hostname NAME           Installed hostname.
   --username NAME           Primary sudo user.
@@ -44,12 +48,17 @@ while [ "$#" -gt 0 ]; do
             dry_run=1
             shift
             ;;
+        --profile)
+            profile=${2:-}
+            shift 2
+            ;;
         --target-disk)
             target_disk=${2:-}
             shift 2
             ;;
         --hostname)
             hostname=${2:-}
+            hostname_set=1
             shift 2
             ;;
         --username)
@@ -70,6 +79,7 @@ while [ "$#" -gt 0 ]; do
             ;;
         --machine-name)
             machine_name=${2:-}
+            machine_name_set=1
             shift 2
             ;;
         --output-dir)
@@ -85,6 +95,19 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+
+case "$profile" in
+    rgx1gen11 | rgam5terra)
+        ;;
+    *)
+        die "unsupported profile: $profile"
+        ;;
+esac
+
+if [ "$profile" = "rgam5terra" ]; then
+    [ "$hostname_set" -eq 0 ] && hostname="rgam5terra"
+    [ "$machine_name_set" -eq 0 ] && machine_name="rgam5terra"
+fi
 
 [ -n "$target_disk" ] || die "--target-disk is required"
 [[ "$target_disk" == /dev/* ]] || die "--target-disk must be an absolute /dev path"
@@ -109,6 +132,7 @@ render_config() {
         --arg console_keymap "$console_keymap" \
         --arg chezmoi_key_layout "$chezmoi_key_layout" \
         --arg machine_name "$machine_name" \
+        --arg profile "$profile" \
         '
         {
           "additional-repositories": [],
@@ -329,11 +353,24 @@ render_config() {
           "custom-commands": [
             "systemctl enable NetworkManager.service",
             "install -d -m 0755 /home/\($username)/.config/chezmoi",
-            "printf '\''[data]\ndisplay_manager = \"sway\"\nkey_layout = \"\($chezmoi_key_layout)\"\nencrypted = \"yes\"\nmachine_name = \"\($machine_name)\"\nsetup_mamba = \"no\"\nsetup_pixi = \"yes\"\nsetup_spack = \"no\"\nsetup_nix = \"no\"\nuse_rust = \"yes\"\nhave_cuda = \"no\"\n'\'' > /home/\($username)/.config/chezmoi/chezmoi.toml",
+            "printf '\''[data]\ndisplay_manager = \"sway\"\nkey_layout = \"\($chezmoi_key_layout)\"\nencrypted = \"yes\"\nmachine_name = \"\($machine_name)\"\nsetup_mamba = \"no\"\nsetup_pixi = \"yes\"\nsetup_spack = \"no\"\nsetup_nix = \"no\"\nuse_rust = \"yes\"\nhave_cuda = \"\(if $profile == "rgam5terra" then "yes" else "no" end)\"\n'\'' > /home/\($username)/.config/chezmoi/chezmoi.toml",
             "chown -R \($username):\($username) /home/\($username)/.config",
             "sudo -u \($username) chezmoi init --apply HaoZeke --branch chezmoi"
           ]
         }
+        | if $profile == "rgam5terra" then
+            .packages = ((.packages - ["tlp", "tlp-rdw", "thermald"]) + [
+              "amd-ucode",
+              "nvidia-open-dkms",
+              "nvidia-utils",
+              "nvidia-settings",
+              "opencl-nvidia",
+              "tuned",
+              "tuned-ppd"
+            ])
+          else
+            .
+          end
         '
 }
 

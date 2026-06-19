@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"strings"
 	"testing"
 
@@ -67,5 +68,62 @@ func TestInstallConfirmationAcceptsExactDisk(t *testing.T) {
 
 	if got.action != actionInstall {
 		t.Fatalf("exact confirmation should run install, got %v", got.action)
+	}
+}
+
+func TestParseArgsAppliesTerraProfileDefaults(t *testing.T) {
+	cfg, err := parseArgs([]string{
+		"--profile", "rgam5terra",
+		"--target-disk", "/dev/nvme0n1",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("parseArgs returned error: %v", err)
+	}
+
+	if cfg.profile != "rgam5terra" {
+		t.Fatalf("profile = %q, want rgam5terra", cfg.profile)
+	}
+	if cfg.hostname != "rgam5terra" {
+		t.Fatalf("hostname = %q, want rgam5terra", cfg.hostname)
+	}
+	if cfg.machineName != "rgam5terra" {
+		t.Fatalf("machineName = %q, want rgam5terra", cfg.machineName)
+	}
+}
+
+func TestParseArgsKeepsExplicitProfileNames(t *testing.T) {
+	cfg, err := parseArgs([]string{
+		"--profile", "rgam5terra",
+		"--target-disk", "/dev/nvme0n1",
+		"--hostname", "workstation",
+		"--machine-name", "rgx1gen11",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("parseArgs returned error: %v", err)
+	}
+
+	if cfg.hostname != "workstation" {
+		t.Fatalf("hostname = %q, want workstation", cfg.hostname)
+	}
+	if cfg.machineName != "rgx1gen11" {
+		t.Fatalf("machineName = %q, want rgx1gen11", cfg.machineName)
+	}
+}
+
+func TestProfileFieldUpdatesHostDefaults(t *testing.T) {
+	m := newModel(testConfig())
+	m.field = fieldProfile
+	m.loadField()
+	m.input.SetValue("rgam5terra")
+	m.saveField()
+
+	if m.cfg.profile != "rgam5terra" {
+		t.Fatalf("profile = %q, want rgam5terra", m.cfg.profile)
+	}
+	if m.cfg.hostname != "rgam5terra" {
+		t.Fatalf("hostname = %q, want rgam5terra", m.cfg.hostname)
+	}
+	if m.cfg.machineName != "rgam5terra" {
+		t.Fatalf("machineName = %q, want rgam5terra", m.cfg.machineName)
 	}
 }

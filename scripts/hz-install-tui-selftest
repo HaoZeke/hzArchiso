@@ -60,4 +60,38 @@ assert_jq "$config" 'any(.["custom-commands"][]; contains("key_layout = \"colema
 assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
 assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
 
+terra_out="$tmpdir/terra"
+HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
+    --dry-run \
+    --profile rgam5terra \
+    --target-disk /dev/testdisk \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --console-keymap us \
+    --chezmoi-key-layout colemak \
+    --output-dir "$terra_out" >/dev/null
+
+terra_config="$terra_out/user_configuration.json"
+terra_creds="$terra_out/user_credentials.json"
+
+test -s "$terra_config" || fail "missing rgam5terra user_configuration.json"
+test -s "$terra_creds" || fail "missing rgam5terra user_credentials.json"
+
+jq empty "$terra_config" >/dev/null || fail "rgam5terra config is not valid JSON"
+jq empty "$terra_creds" >/dev/null || fail "rgam5terra credentials are not valid JSON"
+
+assert_jq "$terra_config" '.hostname == "rgam5terra"' "rgam5terra hostname was not rendered"
+for pkg in amd-ucode nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
+    if ! jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$terra_config" >/dev/null; then
+        fail "rgam5terra package missing: $pkg"
+    fi
+done
+for pkg in tlp tlp-rdw thermald; do
+    if jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$terra_config" >/dev/null; then
+        fail "rgam5terra should not install laptop-only package: $pkg"
+    fi
+done
+assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
+assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
+
 printf 'ok\n'
