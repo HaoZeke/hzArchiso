@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Build hzArchiso live ISO on a *native* Arch host (no Docker/podman).
+#
+# Run this yourself — needs your sudo for /repo/hzarchiso and mkarchiso.
+# Stock kernels only; no linux-rg prebuilts required (aurpkgs must not list linux-rg
+# unless HZARCHISO_PREBUILT_DIR is set).
+#
+# Usage:
+#   cd /path/to/hzArchiso
+#   ./scripts/hzarchiso-build-iso-native
+#
+# Optional env:
+#   REPO_DIR=/repo/hzarchiso     custom pacman repo (default)
+#   WORK_DIR=./work             mkarchiso work dir
+#   OUT_DIR=./out               ISO output
+#   SKIP_AUR_REPO=1             skip makepkg if repo already populated
+#   CLEAN_WORK=1                sudo rm -rf work dir first
+#   HZARCHISO_INSTALL_BUILT=1   pacman -U built AUR pkgs on builder (default 1)
+#   HZARCHISO_PREBUILT_DIR=...  only if you inject non-AUR packages
+#   HZARCHISO_BUILD_LOG=...     log path (default out/build-iso-native.log)
+#
+# Output:  <repo>/out/*.iso
+
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd -- "$repo_root"
+
+repo_dir=${REPO_DIR:-/repo/hzarchiso}
+work_dir=${WORK_DIR:-"${repo_root}/work"}
+out_dir=${OUT_DIR:-"${repo_root}/out"}
+log=${HZARCHISO_BUILD_LOG:-"${out_dir}/build-iso-native.log"}
+skip_aur=${SKIP_AUR_REPO:-0}
+install_built=${HZARCHISO_INSTALL_BUILT:-1}
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+need() {
+    command -v "$1" >/dev/null 2>&1 || fail "missing command: $1 (pacman -S --needed archiso base-devel go jq make)"
+}
+
+need mkarchiso
+need makepkg
+need repo-add
+need go
+need jq
+need make
+need sudo
+
+if grep -qx 'linux-rg' aurpkgs.txt 2>/dev/null; then
+    if [ -z "${HZARCHISO_PREBUILT_DIR:-}" ] || [ ! -d "${HZARCHISO_PREBUILT_DIR}" ]; then
+        fail "aurpkgs.txt lists linux-rg but HZARCHISO_PREBUILT_DIR is unset/missing — remove linux-rg for a stock-kernel ISO or set PREBUILT_DIR"
+    fi
+fi
+
+mkdir -p "$out_dir"
+
+# Prime sudo on the real terminal and keep the timestamp warm for the whole run.
+# makepkg -s (dependency install) and mkarchiso both call sudo, all after the tee
+# redirect below; without a cached credential sudo cannot read a password from the
+# redirected build and dies with "sudo: timed out reading password".
+printf '==> priming sudo (enter your password once)\n'
+sudo -v
+( while true; do sudo -n true 2>/dev/null; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) &
+sudo_keepalive_pid=$!
+trap 'kill "$sudo_keepalive_pid" 2>/dev/null' EXIT
+
+# Log and stdout
+exec > >(tee -a "$log") 2>&1
+
+printf '==> hzarchiso native ISO build (no container)\n'
+printf '    repo_root=%s\n' "$repo_root"
+printf '    repo_dir=%s\n' "$repo_dir"
+printf '    work_dir=%s\n' "$work_dir"
+printf '    out_dir=%s\n' "$out_dir"
+printf '    log=%s\n' "$log"
+printf '    started=%s\n' "$(date -Is)"
+
+if [ ! -d "$repo_dir" ] || [ ! -w "$repo_dir" ]; then
+    printf '==> sudo install -d %s (owned by you for makepkg)\n' "$repo_dir"
+    sudo install -d -o "$(id -u)" -g "$(id -g)" -m 0755 "$repo_dir"
+fi
+
+printf '==> make tui\n'
+make tui
+
+printf '==> make check\n'
+make check
+
+if [ "$skip_aur" != 1 ]; then
+    printf '==> make aur-repo (HZARCHISO_INSTALL_BUILT=%s)\n' "$install_built"
+    export HZARCHISO_BUILD_DIR="${HZARCHISO_BUILD_DIR:-${repo_dir}/build}"
+    HZARCHISO_INSTALL_BUILT="$install_built" make aur-repo
+    printf '==> make repo-check\n'
+    make repo-check
+else
+    printf '==> SKIP_AUR_REPO=1 — checking existing %s\n' "$repo_dir"
+    make repo-check
+fi
+
+printf '==> mkarchiso (sudo; long step)\n'
+if [ "${CLEAN_WORK:-0}" = 1 ] && [ -e "$work_dir" ]; then
+    sudo rm -rf -- "$work_dir"
+fi
+sudo mkarchiso -v -w "$work_dir" -o "$out_dir" hzLinux
+
+printf '==> artifacts\n'
+ls -lh "$out_dir"
+iso=$(find "$out_dir" -maxdepth 1 -type f -name '*.iso' | sort | tail -n 1 || true)
+[ -n "$iso" ] || fail "no .iso under $out_dir"
+printf '\nISO ready:\n  %s\n  size: %s\n' "$iso" "$(du -h "$iso" | awk '{print $1}')"
+printf 'Flash (DESTRUCTIVE — confirm with lsblk):\n  sudo dd if=%s of=/dev/sdX bs=4M status=progress oflag=sync\n' "$iso"
+printf 'On live USB (Terra AM5):\n  hz-install-tui --profile rgam5terra\n'
+printf 'finished=%s\n' "$(date -Is)"
