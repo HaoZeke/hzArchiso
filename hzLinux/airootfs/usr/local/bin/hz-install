@@ -211,7 +211,7 @@ render_config() {
             "partitions": ["hz-root"]
           },
           "hostname": $hostname,
-          "kernels": ["linux", "linux-lts"],
+          "kernels": (if $profile == "rgam5terra" then ["linux", "linux-lts", "linux-rg"] else ["linux", "linux-lts"] end),
           "locale_config": {
             "kb_layout": $console_keymap,
             "sys_enc": "UTF-8",
@@ -361,6 +361,8 @@ render_config() {
         | if $profile == "rgam5terra" then
             .packages = ((.packages - ["tlp", "tlp-rdw", "thermald"]) + [
               "amd-ucode",
+              "linux-rg",
+              "linux-rg-headers",
               "nvidia-open-dkms",
               "nvidia-utils",
               "nvidia-settings",

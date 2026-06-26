@@ -25,32 +25,32 @@ Target profiles are selected with ~--profile~:
 - ~rgx1gen11~ keeps the ThinkPad laptop defaults and remains the default when
   no profile is specified.
 - ~rgam5terra~ selects the Terra AM5 desktop target with AMD microcode,
+  ~linux-rg~ / ~linux-rg-headers~ (prebuilt into the ~hzarchiso~ custom repo),
   NVIDIA open DKMS drivers, NVIDIA userspace/OpenCL tooling, and tuned. It
   omits laptop-only target packages such as ~tlp~, ~tlp-rdw~, and ~thermald~.
-  Install kernels are stock ~linux~ and ~linux-lts~ (enough for Terra to boot
-  and install without a custom kernel package).
+  Install kernels are stock ~linux~, ~linux-lts~, and ~linux-rg~ (additive;
+  stock kernels remain for rollback and dual-vendor safety).
 
-** Best path (dual Intel+AMD live media, Terra boot, 16GB USB, elja)
+** Best path (dual Intel+AMD live media + linux-rg + 16GB USB + elja)
 
 Decision summary for bootable installer media aimed at the Terra AM5 machine
 described in the ~linux-rg~ tree, while remaining useful on Intel x86_64 boxes
 (e.g. ~rgx1gen11~ ThinkPad) from the same 16GB stick.
 
-*Current deliverable (no Arch on elja host):* a normal hzArchiso ISO with stock
-kernels only. Do *not* require ~linux-rg~ packages in ~aurpkgs.txt~ or the
-installer until an Arch-capable environment can produce them (elja login/compute
-images are not Arch; full ~makepkg~ of ~linux-rg~ is deferred). Terra still
-boots and installs via ~--profile rgam5terra~ on ~linux~ / ~linux-lts~ with
-~amd-ucode~ and NVIDIA open DKMS.
+Elja login/compute images are *not* Arch. All ~makepkg~ / ~mkarchiso~ work runs
+inside a privileged ~podman~ ~archlinux:base-devel~ container on an interactive
+~srun~ allocation controlled from ~tmux~ on the login node. Host packages alone
+are insufficient; the container *is* the Arch-capable builder.
 
 | Topic | Choice |
 | Live ISO architecture | ~x86_64~ only (no aarch64/ARM ISO) |
 | Dual-vendor hardware | Ship both ~intel-ucode~ and ~amd-ucode~; EFI/syslinux/GRUB early-load *both* microcode images before the stock live ~initramfs-linux.img~ |
-| Live + install kernels (now) | Stock Arch ~linux~ and ~linux-lts~ (generic modular). Live boot entry is always ~vmlinuz-linux~ / ~initramfs-linux.img~, not an AMD-only ISA build |
-| Terra install profile | ~hz-install --profile rgam5terra~ adds ~amd-ucode~, ~nvidia-open-dkms~, ~nvidia-utils~, ~nvidia-settings~, ~opencl-nvidia~, ~tuned~, ~tuned-ppd~; drops laptop-only ~tlp~ / ~thermald~ |
-| ~linux-rg~ (deferred) | Prefer later: build from the ~linux-rg~ tree with ~LINUX_RG_PROFILE=rgam5terra~ on an Arch host/container, drop packages into ~HZARCHISO_PREBUILT_DIR~, add ~linux-rg~ / ~linux-rg-headers~ to ~aurpkgs.txt~ and the Terra installer kernel list. Not required for first Terra boot |
-| Primary builder | Prefer any Arch host with ~mkarchiso~. On elja: interactive ~srun~ from a ~tmux~ session, then Arch via ~podman run … archlinux:base-devel~ (privileged) for ~make aur-repo~ / ~make build~ — host packages alone are insufficient |
-| USB target | Aim ISO under ~14GB~ so a 16GB stick has headroom; artifacts under ~out/~ |
+| Live boot kernel | Stock Arch ~linux~ only (~vmlinuz-linux~ / ~initramfs-linux.img~). Not an AMD-only / znver5-only sole live kernel. ~linux-rg~ may be *packaged* on the ISO for offline install but does not replace the live boot entry |
+| Terra install kernels | ~linux~, ~linux-lts~, and ~linux-rg~ (additive). ~hz-install --profile rgam5terra~ also adds ~linux-rg-headers~, ~amd-ucode~, NVIDIA open DKMS stack, and ~tuned~ / ~tuned-ppd~ |
+| How ~linux-rg~ is produced | In Arch container: ~LINUX_RG_PROFILE=rgam5terra makepkg~ from the ~linux-rg~ tree (not on AUR). Packages land in ~HZARCHISO_PREBUILT_DIR~ |
+| How packages enter hzArchiso | ~aurpkgs.txt~ lists ~linux-rg~ and ~linux-rg-headers~; ~make aur-repo~ injects matching ~${pkg}-[0-9]*.pkg.tar*~ from ~HZARCHISO_PREBUILT_DIR~ into ~file:///repo/hzarchiso~. Missing prebuilts fail closed: ~missing prebuilt package for non-AUR package: linux-rg~ |
+| Primary builder | Elja: ~tmux~ → ~srun --pty~ → ~podman run … archlinux:base-devel~ (kernel makepkg, then ~make aur-repo~ / ~make build~). Any native Arch host works the same without the container |
+| USB target | Aim ISO under ~14GB~ for a 16GB stick; artifacts under ~out/~ (or documented elja work path) |
 
 ** Methodology
 The profile uses the standard ~archiso~ workflow. Daily-driver packages from
@@ -65,7 +65,8 @@ into the ~archinstall~ JSON files.
 
 The current profile emphasizes:
 
-- encrypted Btrfs install flow with ~linux~ and ~linux-lts~
+- encrypted Btrfs install flow with ~linux~ and ~linux-lts~ (plus ~linux-rg~
+  for ~rgam5terra~)
 - Sway, Waybar, foot, fuzzel, greetd, and tuigreet
 - PipeWire, WirePlumber, ~xdg-desktop-portal~, and
   ~xdg-desktop-portal-wlr~
@@ -78,11 +79,13 @@ The current profile emphasizes:
   tools, Flatpak
 - laptop/rescue tooling: NetworkManager, tailscale, fwupd, smartmontools,
   nvme-cli, tlp, thermald, zram-generator
-- rgam5terra target tooling: amd-ucode, nvidia-open-dkms, nvidia-utils,
-  nvidia-settings, opencl-nvidia, tuned, tuned-ppd
+- rgam5terra target tooling: amd-ucode, linux-rg, linux-rg-headers,
+  nvidia-open-dkms, nvidia-utils, nvidia-settings, opencl-nvidia, tuned,
+  tuned-ppd
 - bootstrap and development tooling: chezmoi, age, pass, git, openssh, gh,
   glab, podman, build/debug tools
-- AUR/local payload: linux-nitrous, linux-nitrous-headers, Enpass, pCloud,
+- AUR/local payload: linux-nitrous, linux-nitrous-headers, linux-rg,
+  linux-rg-headers (prebuilt via ~HZARCHISO_PREBUILT_DIR~), Enpass, pCloud,
   Windscribe, Cryptomator, gnome-encfs-manager, yay, rtl88xxau DKMS, and the
   existing git variants for Sway/Wayland helper tools
 
@@ -127,10 +130,14 @@ Non-dry-run installs require root, a whole-disk block device, exact disk
 confirmation, root/user passwords, and a disk encryption password.
 
 * Build Steps
-Build and validation should run on an Arch builder or in an Arch container:
+Build and validation should run on an Arch builder or in an Arch container.
+~linux-rg~ / ~linux-rg-headers~ are listed in ~aurpkgs.txt~ and are *not* on
+AUR: place finished packages in ~HZARCHISO_PREBUILT_DIR~ first.
 
 #+begin_src bash
 sudo install -d -o "$(id -u)" -g "$(id -g)" /repo/hzarchiso
+export HZARCHISO_PREBUILT_DIR=/path/to/prebuilt
+# must contain linux-rg-[0-9]*.pkg.tar* and linux-rg-headers-[0-9]*.pkg.tar*
 HZARCHISO_INSTALL_BUILT=1 make aur-repo
 make tui-check
 make check
@@ -140,30 +147,33 @@ make build
 
 The ~aur-repo~ target builds package bases from AUR metadata, adds direct-clone
 legacy AUR bases when the RPC result is unavailable, copies packages supplied by
-~HZARCHISO_PREBUILT_DIR~ (optional; used for binary-only AUR packages), and
-writes a pacman repository named ~hzarchiso~. The ~build~ target verifies that
-this repository contains every package in ~aurpkgs.txt~ before running
-~mkarchiso~.
+~HZARCHISO_PREBUILT_DIR~ (required for ~linux-rg~ / ~linux-rg-headers~ and any
+binary-only entries), and writes a pacman repository named ~hzarchiso~. The
+~build~ target verifies that this repository contains every package in
+~aurpkgs.txt~ before running ~mkarchiso~. Missing non-AUR prebuilts fail closed
+with ~missing prebuilt package for non-AUR package: …~.
 
 The AUR build tree defaults to ~/repo/hzarchiso/build~ so large packages such as
 ~linux-nitrous~ use the same mounted filesystem as the local package repository.
 Set ~HZARCHISO_BUILD_DIR~ when the repository path is not on a roomy filesystem.
 
-Containerized builds need a writable ~/repo/hzarchiso~ and a non-root user for
-~makepkg~ (use this on elja; the host OS is not Arch):
+Containerized builds need a writable ~/repo/hzarchiso~, prebuilt dir, and a
+non-root user for ~makepkg~ (use this on elja; the host OS is not Arch):
 
 #+begin_src bash
 docker run --rm --privileged \
   -v "$PWD:/work" \
   -v /path/to/hzarchiso-repo:/repo/hzarchiso \
+  -v /path/to/prebuilt:/prebuilt:ro \
   -w /work \
+  -e HZARCHISO_PREBUILT_DIR=/prebuilt \
   archlinux:base-devel \
   bash -lc '
     pacman -Sy --noconfirm archiso base-devel go jq make sudo git
     useradd -m builder
     printf "builder ALL=(ALL) NOPASSWD: ALL\n" >/etc/sudoers.d/builder
     chown -R builder:builder /repo/hzarchiso /work
-    sudo -u builder HZARCHISO_INSTALL_BUILT=1 make aur-repo
+    sudo -u builder env HZARCHISO_PREBUILT_DIR=/prebuilt HZARCHISO_INSTALL_BUILT=1 make aur-repo
     make build
     ls -lh out/
   '
@@ -173,26 +183,32 @@ The ~build~ target compiles ~hz-install-tui~ into
 ~hzLinux/airootfs/usr/local/bin/hz-install-tui~, validates the profile, and runs
 ~mkarchiso~. ISO images land under ~out/~ (default ~outDir~ in the Makefile).
 
-On the live USB, install Terra with stock kernels:
+On the live USB, install Terra (stock kernels *plus* ~linux-rg~):
 
 #+begin_src bash
 hz-install-tui --profile rgam5terra
 # or
 hz-install --profile rgam5terra --target-disk /dev/nvme0n1 …
+# kernels: linux, linux-lts, linux-rg
 #+end_src
 
-** Elja (~srun~ + ~tmux~) procedure — normal ISO (no ~linux-rg~)
+** Elja (~srun~ + ~tmux~) procedure — kernel makepkg → prebuilt → ISO
 
 Login nodes (~slogin1.rhi.hi.is~, user ~rog32~ via ~ssh elja~) are not Arch
-hosts and cannot run ~mkarchiso~ or AUR ~makepkg~ natively. Use an interactive
+hosts and cannot run ~mkarchiso~ or ~makepkg~ natively. Use an interactive
 Slurm allocation and an Arch container (~podman~ is available). Control the long
-session from ~tmux~ so disconnects do not kill ~srun~. Skip ~linux-rg~ entirely
-for this pass; Terra boots on stock ~linux~ / ~linux-lts~.
+session from ~tmux~ so disconnects do not kill ~srun~. Order of operations:
 
-Artifact layout sized for a 16GB USB target (keep the final ISO under ~14GB~):
+1. ~LINUX_RG_PROFILE=rgam5terra makepkg~ in Arch container → ~PREBUILT/~
+2. ~HZARCHISO_PREBUILT_DIR=$PREBUILT make aur-repo~ (injects ~linux-rg~)
+3. ~make build~ (~mkarchiso~) → ~out/*.iso~ sized for a 16GB stick (~&lt;14GB~)
+
+Artifact layout:
 
 | Path on elja (example) | Role |
-| ~$SCRATCH/hz-build~ or ~$HOME/work/hz-build~ | Top-level work root |
+| ~$SCRATCH/hz-build~ or ~$HOME/work/hz-build~ | Top-level work root (prefer project ~$SCRATCH~ if larger than ~$HOME~) |
+| ~…/linux-rg~ | Checkout of ~linux-rg~ for ~makepkg~ |
+| ~…/prebuilt~ | ~HZARCHISO_PREBUILT_DIR~ (~linux-rg-[0-9]*.pkg.tar.zst~, headers) |
 | ~…/hzArchiso~ | This repository checkout |
 | ~…/repo/hzarchiso~ | Custom pacman repo (~make aur-repo~ / ~file:///repo/hzarchiso~) |
 | ~…/hzArchiso/out~ | ~mkarchiso~ ISO output; flash the ~.iso~ to the 16GB stick |
@@ -205,33 +221,49 @@ tmux new -s hziso || tmux attach -t hziso
 srun --pty --partition=128cpu_256mem --cpus-per-task=32 --mem=64G --time=12:00:00 bash
 
 export HZ_ROOT="${SCRATCH:-$HOME}/hz-build"
+export LINUX_RG_SRC="$HZ_ROOT/linux-rg"
+export PREBUILT="$HZ_ROOT/prebuilt"
 export HZARCHISO_SRC="$HZ_ROOT/hzArchiso"
 export REPO_HOST="$HZ_ROOT/repo/hzarchiso"
-mkdir -p "$REPO_HOST"
+mkdir -p "$PREBUILT" "$REPO_HOST" \
+  "$HZ_ROOT/makepkg-build" "$HZ_ROOT/makepkg-tmp"
 
+# 1) Kernel packages (Arch container — host is not Arch)
+podman run --rm -it --privileged \
+  -v "$LINUX_RG_SRC:/work:z" -v "$PREBUILT:/pkgdest:z" \
+  -v "$HZ_ROOT/makepkg-build:/build:z" -v "$HZ_ROOT/makepkg-tmp:/tmp:z" \
+  -w /work -e LINUX_RG_PROFILE=rgam5terra \
+  -e BUILDDIR=/build -e PKGDEST=/pkgdest -e TMPDIR=/tmp \
+  archlinux:base-devel \
+  bash -lc '
+    pacman -Sy --noconfirm base-devel
+    useradd -m b
+    chown -R b:b /work /pkgdest /build /tmp
+    sudo -u b env LINUX_RG_PROFILE=rgam5terra BUILDDIR=/build PKGDEST=/pkgdest TMPDIR=/tmp \
+      makepkg -s --noconfirm --needed --skippgpcheck
+  '
+# Expect: $PREBUILT/linux-rg-[0-9]*.pkg.tar.zst and linux-rg-headers-[0-9]*.pkg.tar.zst
+
+# 2) Custom repo + ISO (Arch container; privileged for mkarchiso)
 cd "$HZARCHISO_SRC"
 podman run --rm -it --privileged \
   -v "$HZARCHISO_SRC:/work:z" \
   -v "$REPO_HOST:/repo/hzarchiso:z" \
+  -v "$PREBUILT:/prebuilt:ro,z" \
   -w /work \
+  -e HZARCHISO_PREBUILT_DIR=/prebuilt \
   archlinux:base-devel \
   bash -lc '
     pacman -Sy --noconfirm archiso base-devel go jq make sudo git
     useradd -m builder
     printf "builder ALL=(ALL) NOPASSWD: ALL\n" >/etc/sudoers.d/builder
     chown -R builder:builder /repo/hzarchiso /work
-    sudo -u builder HZARCHISO_INSTALL_BUILT=1 make aur-repo
+    sudo -u builder env HZARCHISO_PREBUILT_DIR=/prebuilt HZARCHISO_INSTALL_BUILT=1 make aur-repo
     sudo -u builder make check
     make build
     ls -lh out/
   '
 #+end_src
-
-Optional later (~linux-rg~ only when an Arch container can finish ~makepkg~):
-build packages from the ~linux-rg~ tree with ~LINUX_RG_PROFILE=rgam5terra~, copy
-~linux-rg-*.pkg.tar.zst~ and ~linux-rg-headers-*.pkg.tar.zst~ into
-~HZARCHISO_PREBUILT_DIR~, add those names to ~aurpkgs.txt~ and the Terra
-installer kernel list, then re-run ~make aur-repo~ / ~make build~.
 
 Flash example (on a machine with the stick attached; destructive):
 

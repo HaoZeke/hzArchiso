@@ -140,8 +140,10 @@ find_prebuilt_package() {
     if [ -z "$prebuilt_dir" ]; then
         return 1
     fi
+    # Version must follow immediately (digit) so "linux-rg" does not match
+    # "linux-rg-headers-*" filenames.
     find "$prebuilt_dir" -maxdepth 1 -type f \
-        \( -name "${pkg}-*.pkg.tar" -o -name "${pkg}-*.pkg.tar.*" \) \
+        \( -name "${pkg}-[0-9]*.pkg.tar" -o -name "${pkg}-[0-9]*.pkg.tar.*" \) \
         ! -name '*.sig' \
         | sort -V \
         | tail -n 1

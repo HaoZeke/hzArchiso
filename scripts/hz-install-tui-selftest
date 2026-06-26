@@ -81,7 +81,7 @@ jq empty "$terra_config" >/dev/null || fail "rgam5terra config is not valid JSON
 jq empty "$terra_creds" >/dev/null || fail "rgam5terra credentials are not valid JSON"
 
 assert_jq "$terra_config" '.hostname == "rgam5terra"' "rgam5terra hostname was not rendered"
-for pkg in amd-ucode nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
+for pkg in amd-ucode linux-rg linux-rg-headers nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
     if ! jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$terra_config" >/dev/null; then
         fail "rgam5terra package missing: $pkg"
     fi
@@ -93,9 +93,7 @@ for pkg in tlp tlp-rdw thermald; do
 done
 assert_jq "$terra_config" '.kernels | index("linux")' "rgam5terra must keep stock linux kernel"
 assert_jq "$terra_config" '.kernels | index("linux-lts")' "rgam5terra must keep linux-lts kernel"
-if jq -e '.kernels | index("linux-rg")' "$terra_config" >/dev/null; then
-    fail "rgam5terra should not require linux-rg until prebuilts are wired"
-fi
+assert_jq "$terra_config" '.kernels | index("linux-rg")' "rgam5terra must install linux-rg (additive with stock kernels)"
 assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
 assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
 

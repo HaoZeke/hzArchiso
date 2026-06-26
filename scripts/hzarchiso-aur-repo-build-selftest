@@ -66,9 +66,12 @@ url="$2"
 dest="$3"
 base=${url##*/}
 base=${base%.git}
-if [ "$base" = binary-only ]; then
-    exit 1
-fi
+# Non-AUR packages consumed only via HZARCHISO_PREBUILT_DIR.
+case "$base" in
+    binary-only|linux-rg|linux-rg-headers)
+        exit 1
+        ;;
+esac
 mkdir -p "$dest"
 printf '%s\n' "$base" >"${dest}/.hzarchiso-base"
 printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/git-clones"
@@ -160,6 +163,8 @@ cat >"$packages_file" <<'EOF'
 split-a
 split-b
 linux-nitrous
+linux-rg
+linux-rg-headers
 legacy-local
 binary-only
 EOF
@@ -182,6 +187,10 @@ repo_dir="${tmpdir}/repo"
 log_dir="${tmpdir}/log"
 mkdir -p "$prebuilt_dir" "$repo_dir" "$log_dir"
 write_pkg "$prebuilt_dir" binary-only
+# Distinct versions so find_prebuilt_package("${pkg}-*") does not collide
+# (linux-rg-headers-* would also match a linux-rg-* prefix search).
+write_pkg "$prebuilt_dir" linux-rg 7.0.12.rg-1
+write_pkg "$prebuilt_dir" linux-rg-headers 7.0.12.hdr-1
 
 PATH="${fake_bin}:$PATH" \
 BASH_ENV="$helper" \
@@ -199,10 +208,18 @@ if [ "$(grep -c '^split-base$' "${log_dir}/makepkg-builds")" -ne 1 ]; then
     fail "split package base was not built exactly once"
 fi
 grep -q '^legacy-local$' "${log_dir}/git-clones" || fail "legacy package was not cloned directly"
+test -f "${repo_dir}/linux-rg-7.0.12.rg-1-any.pkg.tar" || fail "linux-rg prebuilt was not injected into repo"
+test -f "${repo_dir}/linux-rg-headers-7.0.12.hdr-1-any.pkg.tar" || fail "linux-rg-headers prebuilt was not injected into repo"
 
 missing_prebuilt_repo="${tmpdir}/repo-missing-prebuilt"
 missing_prebuilt_dir="${tmpdir}/empty-prebuilt"
 mkdir -p "$missing_prebuilt_repo" "$missing_prebuilt_dir"
 assert_fails "$missing_prebuilt_repo" "$packages_file" "$missing_prebuilt_dir" 'missing prebuilt package'
+
+# Declared non-AUR linux-rg fails closed with an explicit message when prebuilts are absent.
+linux_rg_only="${tmpdir}/linux-rg-only.txt"
+printf '%s\n' linux-rg linux-rg-headers >"$linux_rg_only"
+assert_fails "${tmpdir}/repo-linux-rg-missing" "$linux_rg_only" "$missing_prebuilt_dir" \
+    'missing prebuilt package for non-AUR package: linux-rg'
 
 printf 'ok\n'
