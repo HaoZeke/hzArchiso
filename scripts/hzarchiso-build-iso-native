@@ -93,6 +93,13 @@ make check
 if [ "$skip_aur" != 1 ]; then
     printf '==> make aur-repo (HZARCHISO_INSTALL_BUILT=%s)\n' "$install_built"
     export HZARCHISO_BUILD_DIR="${HZARCHISO_BUILD_DIR:-${repo_dir}/build}"
+    # clone_base refuses an existing source dir, so a previous aborted run leaves
+    # build/src/* behind and the next run fails on the first stale clone. Clear
+    # the AUR source tree so each run clones fresh.
+    if [ -d "${HZARCHISO_BUILD_DIR}/src" ]; then
+        printf '==> clearing stale AUR build sources (%s/src)\n' "$HZARCHISO_BUILD_DIR"
+        rm -rf -- "${HZARCHISO_BUILD_DIR}/src"
+    fi
     HZARCHISO_INSTALL_BUILT="$install_built" make aur-repo
     printf '==> make repo-check\n'
     make repo-check
