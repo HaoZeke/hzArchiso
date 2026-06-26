@@ -99,6 +99,12 @@ for pkg in tlp tlp-rdw thermald; do
         fail "rgam5terra should not install laptop-only package: $pkg"
     fi
 done
+assert_jq "$terra_config" '.kernels | index("linux")' "rgam5terra must keep stock linux kernel"
+assert_jq "$terra_config" '.kernels | index("linux-lts")' "rgam5terra must keep linux-lts kernel"
+# linux-rg is optional until an Arch-capable builder produces prebuilts; Terra boots on stock kernels.
+if jq -e '.kernels | index("linux-rg")' "$terra_config" >/dev/null; then
+    fail "rgam5terra should not require linux-rg until prebuilts are wired"
+fi
 assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
 assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
 
