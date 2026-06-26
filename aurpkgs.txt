@@ -12,6 +12,5 @@ slurp-git
 swaybg-git
 swaylock-effects
 xininfo-git
-teiler-git
 windscribe-cli
 yay

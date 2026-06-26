@@ -33,6 +33,13 @@ log=${HZARCHISO_BUILD_LOG:-"${out_dir}/build-iso-native.log"}
 skip_aur=${SKIP_AUR_REPO:-0}
 install_built=${HZARCHISO_INSTALL_BUILT:-1}
 
+# Fail fast instead of blocking on a credential prompt when an AUR git source is
+# gone (GitHub returns 401 for a deleted repo, which makes git ask for a
+# username/password). Neutralise any inherited askpass helper too.
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=true
+export SSH_ASKPASS=true
+
 fail() {
     printf 'FAIL: %s\n' "$*" >&2
     exit 1
