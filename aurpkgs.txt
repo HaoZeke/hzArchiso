@@ -1,15 +1,10 @@
 ananicy
-cryptomator
+cryptomator-bin
 enpass-bin
 grim-git
 gnome-encfs-manager-bin
 i3status-rust-git
 lightdm-webkit-theme-aether
-libjffi
-linux-nitrous
-linux-nitrous-headers
-linux-rg
-linux-rg-headers
 pcloud-drive
 networkmanager-dispatcher-chrony
 rtl88xxau-aircrack-dkms-git
