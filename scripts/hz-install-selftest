@@ -101,7 +101,10 @@ if "$installer" --dry-run --profile nope --target-disk /dev/testdisk --output-di
 fi
 
 if "$installer" --target-disk /dev/testdisk --output-dir "$tmpdir/nope" </dev/null >/dev/null 2>&1; then
-    fail "non-dry-run install should refuse without confirmation/root"
+    fail "non-dry-run install should refuse without confirmation/root/destructive arming"
+fi
+if HZ_INSTALL_ALLOW_DESTRUCTIVE=1 "$installer" --target-disk /dev/testdisk --output-dir "$tmpdir/nope2" </dev/null >/dev/null 2>&1; then
+    fail "non-dry-run install should still refuse without root even when armed"
 fi
 
 printf 'ok\n'

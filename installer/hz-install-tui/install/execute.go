@@ -149,6 +149,11 @@ func Run(cfg Config, runner Runner, secrets Secrets, stdin io.Reader, stdout, st
 	}
 
 	if !cfg.DryRun {
+		// Refuse destructive installs unless explicitly armed. Prevents wiping a
+		// developer workstation when the binary is run without --dry-run by mistake.
+		if os.Getenv("HZ_INSTALL_ALLOW_DESTRUCTIVE") != "1" {
+			return fmt.Errorf("refusing destructive install: set HZ_INSTALL_ALLOW_DESTRUCTIVE=1 on the install target only (use --dry-run on workstations)")
+		}
 		if os.Geteuid() != 0 {
 			return fmt.Errorf("non-dry-run install must run as root")
 		}
