@@ -117,6 +117,16 @@ fi
 
 need jq
 
+# archinstall 4.3 dropped the percent size unit, so size the root partition
+# explicitly: fill the disk after the 1 GiB ESP (start at 1025 MiB), leaving a
+# 2 MiB tail for the GPT backup header.
+disk_bytes=$(blockdev --getsize64 "$target_disk" 2>/dev/null || lsblk -bdno SIZE "$target_disk" 2>/dev/null || echo 0)
+if [ "$disk_bytes" -gt 0 ]; then
+    root_size_mib=$(( disk_bytes / 1048576 - 1025 - 2 ))
+else
+    root_size_mib=0
+fi
+
 mkdir -p "$output_dir"
 chmod 700 "$output_dir"
 
@@ -133,6 +143,7 @@ render_config() {
         --arg chezmoi_key_layout "$chezmoi_key_layout" \
         --arg machine_name "$machine_name" \
         --arg profile "$profile" \
+        --argjson root_size_mib "$root_size_mib" \
         '
         {
           "additional-repositories": [],
@@ -154,11 +165,11 @@ render_config() {
                 "partitions": [
                   {
                     "btrfs": [],
-                    "flags": ["boot"],
+                    "dev_path": null,
+                    "flags": ["boot", "esp"],
                     "fs_type": "fat32",
-                    "length": {
-                      "sector_size": null,
-                      "total_size": null,
+                    "size": {
+                      "sector_size": {"value": 512, "unit": "B"},
                       "unit": "MiB",
                       "value": 1024
                     },
@@ -166,8 +177,7 @@ render_config() {
                     "mountpoint": "/boot",
                     "obj_id": "hz-efi",
                     "start": {
-                      "sector_size": null,
-                      "total_size": null,
+                      "sector_size": {"value": 512, "unit": "B"},
                       "unit": "MiB",
                       "value": 1
                     },
@@ -182,20 +192,19 @@ render_config() {
                       {"mountpoint": "/var/log", "name": "@var_log"},
                       {"mountpoint": "/var/cache/pacman/pkg", "name": "@cache"}
                     ],
+                    "dev_path": null,
                     "flags": [],
                     "fs_type": "btrfs",
-                    "length": {
-                      "sector_size": null,
-                      "total_size": null,
-                      "unit": "%",
-                      "value": 100
+                    "size": {
+                      "sector_size": {"value": 512, "unit": "B"},
+                      "unit": "MiB",
+                      "value": $root_size_mib
                     },
                     "mount_options": ["compress=zstd", "noatime"],
                     "mountpoint": null,
                     "obj_id": "hz-root",
                     "start": {
-                      "sector_size": null,
-                      "total_size": null,
+                      "sector_size": {"value": 512, "unit": "B"},
                       "unit": "MiB",
                       "value": 1025
                     },
@@ -211,7 +220,7 @@ render_config() {
             "partitions": ["hz-root"]
           },
           "hostname": $hostname,
-          "kernels": (if $profile == "rgam5terra" then ["linux", "linux-lts", "linux-rg"] else ["linux", "linux-lts"] end),
+          "kernels": ["linux", "linux-lts"],
           "locale_config": {
             "kb_layout": $console_keymap,
             "sys_enc": "UTF-8",
@@ -361,8 +370,6 @@ render_config() {
         | if $profile == "rgam5terra" then
             .packages = ((.packages - ["tlp", "tlp-rdw", "thermald"]) + [
               "amd-ucode",
-              "linux-rg",
-              "linux-rg-headers",
               "nvidia-open-dkms",
               "nvidia-utils",
               "nvidia-settings",
@@ -386,12 +393,12 @@ render_creds() {
         --arg user_password "$user_password" \
         --arg disk_password "$disk_password" \
         '{
-          "root_enc_password": $root_password,
-          "disk_encryption_password": $disk_password,
+          "!root-password": $root_password,
+          "encryption_password": $disk_password,
           "users": [
             {
               "username": $username,
-              "enc_password": $user_password,
+              "!password": $user_password,
               "sudo": true
             }
           ]
@@ -409,6 +416,7 @@ fi
 
 [ "$(id -u)" -eq 0 ] || die "non-dry-run install must run as root"
 [ -b "$target_disk" ] || die "target disk is not a block device: $target_disk"
+[ "$root_size_mib" -gt 0 ] || die "could not determine size of $target_disk"
 
 printf 'This will erase %s. Type the exact disk path to continue: ' "$target_disk" >&2
 read -r confirm || die "confirmation failed"
@@ -425,4 +433,4 @@ render_config >"$config_path"
 render_creds "$root_password" "$user_password" "$disk_password" >"$creds_path"
 chmod 600 "$config_path" "$creds_path"
 
-exec archinstall --config "$config_path" --creds "$creds_path"
+exec archinstall --config "$config_path" --creds "$creds_path" --silent
