@@ -10,12 +10,11 @@ fail() {
     exit 1
 }
 
-assert_jq() {
-    local file="$1" filter="$2" message="$3"
-    jq -e "$filter" "$file" >/dev/null || fail "$message"
+need_plan() {
+    local file="$1" needle="$2" message="$3"
+    grep -F -- "$needle" "$file" >/dev/null || fail "$message"
 }
 
-command -v jq >/dev/null 2>&1 || fail "jq is required for this selftest"
 test -x "$backend" || fail "missing hz-install backend: $backend"
 test -x "$tui_bin" || fail "missing hz-install-tui binary: $tui_bin"
 
@@ -34,31 +33,20 @@ HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
     --machine-name rgx1gen11 \
     --output-dir "$out" >/dev/null
 
-config="$out/user_configuration.json"
-creds="$out/user_credentials.json"
-
-test -s "$config" || fail "missing rendered user_configuration.json"
-test -s "$creds" || fail "missing rendered user_credentials.json"
-
-jq empty "$config" >/dev/null || fail "config is not valid JSON"
-jq empty "$creds" >/dev/null || fail "credentials are not valid JSON"
-
-assert_jq "$config" '.hostname == "rgx1gen11"' "hostname was not rendered"
-assert_jq "$config" '.timezone == "America/Chicago"' "timezone was not rendered"
-assert_jq "$config" '.disk_config.device_modifications[0].device == "/dev/testdisk"' "target disk was not rendered"
-assert_jq "$config" '.disk_encryption.encryption_type == "luks"' "LUKS encryption was not rendered"
-assert_jq "$config" '.kernels | index("linux")' "linux kernel missing"
-assert_jq "$config" '.kernels | index("linux-lts")' "linux-lts kernel missing"
-assert_jq "$config" '.packages | index("chezmoi")' "chezmoi package missing"
-assert_jq "$config" '.packages | index("greetd-tuigreet")' "tuigreet package missing"
-assert_jq "$config" '.packages | index("xdg-desktop-portal-wlr")' "wlroots portal package missing"
-assert_jq "$config" '.packages | index("zram-generator")' "zram package missing"
-if jq -e '.packages | index("kanata")' "$config" >/dev/null; then
+plan="$out/install-plan.txt"
+test -s "$plan" || fail "missing install-plan.txt from TUI dry-run"
+need_plan "$plan" "hostname=rgx1gen11" "hostname was not rendered"
+need_plan "$plan" "target_disk=/dev/testdisk" "target disk was not rendered"
+need_plan "$plan" "LUKS" "LUKS encryption was not rendered"
+need_plan "$plan" "linux linux-lts" "kernels missing"
+need_plan "$plan" "  - chezmoi" "chezmoi package missing"
+need_plan "$plan" "  - greetd-tuigreet" "tuigreet package missing"
+need_plan "$plan" "  - xdg-desktop-portal-wlr" "wlroots portal package missing"
+need_plan "$plan" "  - zram-generator" "zram package missing"
+if grep -F '  - kanata' "$plan" >/dev/null; then
     fail "kanata should be installed by the post-install bootstrap"
 fi
-assert_jq "$config" 'any(.["custom-commands"][]; contains("key_layout = \"colemak\""))' "chezmoi key layout missing"
-assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
-assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
+need_plan "$plan" 'key_layout = "colemak"' "chezmoi key layout missing"
 
 terra_out="$tmpdir/terra"
 HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
@@ -71,30 +59,19 @@ HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
     --chezmoi-key-layout colemak \
     --output-dir "$terra_out" >/dev/null
 
-terra_config="$terra_out/user_configuration.json"
-terra_creds="$terra_out/user_credentials.json"
-
-test -s "$terra_config" || fail "missing rgam5terra user_configuration.json"
-test -s "$terra_creds" || fail "missing rgam5terra user_credentials.json"
-
-jq empty "$terra_config" >/dev/null || fail "rgam5terra config is not valid JSON"
-jq empty "$terra_creds" >/dev/null || fail "rgam5terra credentials are not valid JSON"
-
-assert_jq "$terra_config" '.hostname == "rgam5terra"' "rgam5terra hostname was not rendered"
-for pkg in amd-ucode linux-rg linux-rg-headers nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
-    if ! jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$terra_config" >/dev/null; then
-        fail "rgam5terra package missing: $pkg"
-    fi
+terra_plan="$terra_out/install-plan.txt"
+test -s "$terra_plan" || fail "missing rgam5terra install-plan.txt"
+need_plan "$terra_plan" "hostname=rgam5terra" "rgam5terra hostname was not rendered"
+for pkg in amd-ucode nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
+    need_plan "$terra_plan" "  - $pkg" "rgam5terra package missing: $pkg"
 done
 for pkg in tlp tlp-rdw thermald; do
-    if jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$terra_config" >/dev/null; then
+    if grep -F "  - $pkg" "$terra_plan" >/dev/null; then
         fail "rgam5terra should not install laptop-only package: $pkg"
     fi
 done
-assert_jq "$terra_config" '.kernels | index("linux")' "rgam5terra must keep stock linux kernel"
-assert_jq "$terra_config" '.kernels | index("linux-lts")' "rgam5terra must keep linux-lts kernel"
-assert_jq "$terra_config" '.kernels | index("linux-rg")' "rgam5terra must install linux-rg (additive with stock kernels)"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
+need_plan "$terra_plan" "linux linux-lts" "rgam5terra must keep stock linux kernels"
+need_plan "$terra_plan" 'machine_name = "rgam5terra"' "rgam5terra machine name missing"
+need_plan "$terra_plan" 'have_cuda = "yes"' "rgam5terra CUDA flag missing"
 
 printf 'ok\n'

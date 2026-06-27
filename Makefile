@@ -4,15 +4,13 @@
 # @file
 # @version 0.1
 
-# Makefile Variables
-
 buildDir=hzLinux
 workDir=work
 outDir=out
 installerDir=installer/hz-install-tui
 tuiBin=$(buildDir)/airootfs/usr/local/bin/hz-install-tui
+installBin=$(buildDir)/airootfs/usr/local/bin/hz-install
 repoDir=/repo/hzarchiso
-
 
 .PHONY: check
 check:
@@ -21,6 +19,7 @@ check:
 	./scripts/hzarchiso-profile-check-selftest
 	./scripts/hzarchiso-aur-repo-check-selftest
 	./scripts/hzarchiso-aur-repo-build-selftest
+	./scripts/hz-install-selftest
 
 .PHONY: aur-repo
 aur-repo:
@@ -33,6 +32,7 @@ repo-check:
 .PHONY: tui
 tui:
 	cd $(installerDir) && go build -buildvcs=false -trimpath -ldflags="-s -w" -o ../../$(tuiBin) .
+	cd $(installerDir) && go build -buildvcs=false -trimpath -ldflags="-s -w" -o ../../$(installBin) ./hzinstall
 
 .PHONY: tui-test
 tui-test:
@@ -41,6 +41,7 @@ tui-test:
 .PHONY: tui-check
 tui-check: tui-test tui
 	./scripts/hz-install-tui-selftest
+	./scripts/hz-install-selftest
 
 .PHONY: build
 build: tui check repo-check
@@ -52,5 +53,3 @@ install: build
 .PHONY: clean
 clean:
 	sudo rm -rf -- $(workDir) $(outDir)
-
-# end

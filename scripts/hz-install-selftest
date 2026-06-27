@@ -9,17 +9,12 @@ fail() {
     exit 1
 }
 
-assert_jq() {
-    local file="$1"
-    shift
-    local filter="$1"
-    shift
-    local message="$1"
-    shift
-    jq -e "$@" "$filter" "$file" >/dev/null || fail "$message"
+need_plan() {
+    local file="$1" needle="$2" message="$3"
+    grep -F -- "$needle" "$file" >/dev/null || fail "$message"
 }
 
-command -v jq >/dev/null 2>&1 || fail "jq is required for this selftest"
+test -x "$installer" || fail "missing hz-install backend: $installer (run make tui)"
 
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
@@ -33,43 +28,49 @@ out="$tmpdir/rendered"
     --timezone America/Chicago \
     --output-dir "$out" >/dev/null
 
-config="$out/user_configuration.json"
-creds="$out/user_credentials.json"
+plan="$out/install-plan.txt"
+test -s "$plan" || fail "missing install-plan.txt"
 
-test -s "$config" || fail "missing rendered user_configuration.json"
-test -s "$creds" || fail "missing rendered user_credentials.json"
+need_plan "$plan" "no archinstall" "plan should state native Go / no archinstall"
+need_plan "$plan" "profile=rgx1gen11" "hostname profile line missing"
+need_plan "$plan" "hostname=rgx1gen11" "hostname missing"
+need_plan "$plan" "target_disk=/dev/testdisk" "target disk missing"
+need_plan "$plan" "type ef00" "ESP ef00 missing"
+need_plan "$plan" "LUKS" "LUKS mention missing"
+need_plan "$plan" "compress=zstd" "compress=zstd missing"
+need_plan "$plan" "noatime" "noatime missing"
+need_plan "$plan" "esp_mount=/boot" "ESP mount missing"
+need_plan "$plan" "@home" "subvolume @home missing"
+need_plan "$plan" "@snapshots" "subvolume @snapshots missing"
+need_plan "$plan" "@var_log" "subvolume @var_log missing"
+need_plan "$plan" "@cache" "subvolume @cache missing"
+need_plan "$plan" "locale=en_US.UTF-8" "locale missing"
+need_plan "$plan" "bootloader=systemd-boot" "systemd-boot missing"
+need_plan "$plan" "cryptdevice=" "cryptdevice kernel param missing"
+need_plan "$plan" "rootflags=subvol=@" "rootflags missing"
+need_plan "$plan" "linux linux-lts" "kernels missing"
+need_plan "$plan" "  - chezmoi" "chezmoi package missing"
+need_plan "$plan" "  - greetd-tuigreet" "tuigreet package missing"
+need_plan "$plan" "  - xdg-desktop-portal-wlr" "wlroots portal package missing"
+need_plan "$plan" "  - zram-generator" "zram package missing"
+need_plan "$plan" "  - tlp" "tlp package missing on rgx1"
+need_plan "$plan" "chezmoi init --apply HaoZeke --branch chezmoi" "chezmoi bootstrap missing"
+need_plan "$plan" 'key_layout = "colemak"' "chezmoi key layout missing"
+need_plan "$plan" 'have_cuda = "no"' "rgx1 cuda flag missing"
+need_plan "$plan" "dry-run: no sgdisk" "dry-run guard missing"
+need_plan "$plan" "NetworkManager.service" "NetworkManager enable missing"
 
-jq empty "$config" >/dev/null || fail "config is not valid JSON"
-jq empty "$creds" >/dev/null || fail "credentials are not valid JSON"
-
-assert_jq "$config" '.hostname == "rgx1gen11"' "hostname was not rendered"
-assert_jq "$config" '.timezone == "America/Chicago"' "timezone was not rendered"
-assert_jq "$config" '.bootloader_config.bootloader == "Systemd-boot"' "bootloader was not rendered"
-assert_jq "$config" '.disk_config.device_modifications[0].device == "/dev/testdisk"' "target disk was not rendered"
-assert_jq "$config" '.disk_encryption.encryption_type == "luks"' "LUKS encryption was not rendered"
-assert_jq "$config" '.disk_encryption.partitions[0] == "hz-root"' "root encryption target was not rendered"
-assert_jq "$config" '.kernels | index("linux")' "linux kernel missing"
-assert_jq "$config" '.kernels | index("linux-lts")' "linux-lts kernel missing"
-assert_jq "$config" '.packages | index("chezmoi")' "chezmoi package missing"
-assert_jq "$config" '.packages | index("greetd-tuigreet")' "tuigreet package missing"
-assert_jq "$config" '.packages | index("xdg-desktop-portal-wlr")' "wlroots portal package missing"
-assert_jq "$config" '.packages | index("zram-generator")' "zram package missing"
-assert_jq "$config" '.packages | index("tlp")' "tlp package missing"
 for pkg in \
     firefox chromium vivaldi obsidian libreoffice-fresh keepassxc obs-studio \
     kooha v4l2loopback-dkms vlc spotify-launcher element-desktop discord \
     thunar flatpak bluez-utils pamixer nm-connection-editor \
     networkmanager-openvpn ripgrep fd btop yazi github-cli glab podman \
     reflector noto-fonts ttf-jetbrains-mono-nerd kanshi; do
-    # shellcheck disable=SC2016
-    assert_jq "$config" '.packages | index($pkg)' "installed usability package missing: $pkg" --arg pkg "$pkg"
+    need_plan "$plan" "  - $pkg" "usability package missing: $pkg"
 done
-if jq -e '.packages | index("kanata")' "$config" >/dev/null; then
+if grep -F '  - kanata' "$plan" >/dev/null; then
     fail "kanata should be installed by the post-install bootstrap"
 fi
-assert_jq "$config" '.["custom-commands"][] | contains("chezmoi init")' "chezmoi bootstrap command missing"
-assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
-assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
 
 terra_out="$tmpdir/terra"
 "$installer" \
@@ -80,37 +81,27 @@ terra_out="$tmpdir/terra"
     --timezone America/Chicago \
     --output-dir "$terra_out" >/dev/null
 
-terra_config="$terra_out/user_configuration.json"
-terra_creds="$terra_out/user_credentials.json"
-
-test -s "$terra_config" || fail "missing rgam5terra user_configuration.json"
-test -s "$terra_creds" || fail "missing rgam5terra user_credentials.json"
-
-jq empty "$terra_config" >/dev/null || fail "rgam5terra config is not valid JSON"
-jq empty "$terra_creds" >/dev/null || fail "rgam5terra credentials are not valid JSON"
-
-assert_jq "$terra_config" '.hostname == "rgam5terra"' "rgam5terra hostname was not rendered"
-for pkg in amd-ucode linux-rg linux-rg-headers nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
-    # shellcheck disable=SC2016
-    assert_jq "$terra_config" '.packages | index($pkg)' "rgam5terra package missing: $pkg" --arg pkg "$pkg"
+terra_plan="$terra_out/install-plan.txt"
+test -s "$terra_plan" || fail "missing rgam5terra install-plan.txt"
+need_plan "$terra_plan" "hostname=rgam5terra" "rgam5terra hostname was not set"
+for pkg in amd-ucode nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
+    need_plan "$terra_plan" "  - $pkg" "rgam5terra package missing: $pkg"
 done
 for pkg in tlp tlp-rdw thermald; do
-    if jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$terra_config" >/dev/null; then
+    if grep -F "  - $pkg" "$terra_plan" >/dev/null; then
         fail "rgam5terra should not install laptop-only package: $pkg"
     fi
 done
-assert_jq "$terra_config" '.kernels | index("linux")' "rgam5terra must keep stock linux kernel"
-assert_jq "$terra_config" '.kernels | index("linux-lts")' "rgam5terra must keep linux-lts kernel"
-assert_jq "$terra_config" '.kernels | index("linux-rg")' "rgam5terra must install linux-rg (additive with stock kernels)"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
+need_plan "$terra_plan" "linux linux-lts" "rgam5terra must keep stock kernels"
+need_plan "$terra_plan" 'machine_name = "rgam5terra"' "rgam5terra machine name missing"
+need_plan "$terra_plan" 'have_cuda = "yes"' "rgam5terra CUDA flag missing"
 
 if "$installer" --dry-run --profile nope --target-disk /dev/testdisk --output-dir "$tmpdir/bad-profile" >/dev/null 2>&1; then
     fail "unsupported profile should fail"
 fi
 
 if "$installer" --target-disk /dev/testdisk --output-dir "$tmpdir/nope" </dev/null >/dev/null 2>&1; then
-    fail "non-dry-run install should refuse without confirmation"
+    fail "non-dry-run install should refuse without confirmation/root"
 fi
 
 printf 'ok\n'

@@ -110,16 +110,16 @@ func parseArgs(args []string, output io.Writer) (installConfig, error) {
 	cfg := defaultConfig()
 	fs := flag.NewFlagSet("hz-install-tui", flag.ContinueOnError)
 	fs.SetOutput(output)
-	fs.BoolVar(&cfg.dryRun, "dry-run", false, "render archinstall JSON but do not install")
+	fs.BoolVar(&cfg.dryRun, "dry-run", false, "print the install plan but do not install")
 	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile: rgx1gen11 or rgam5terra")
 	fs.StringVar(&cfg.targetDisk, "target-disk", cfg.targetDisk, "whole disk to partition")
 	fs.StringVar(&cfg.hostname, "hostname", cfg.hostname, "installed hostname")
 	fs.StringVar(&cfg.username, "username", cfg.username, "primary sudo user")
 	fs.StringVar(&cfg.timezone, "timezone", cfg.timezone, "installed timezone")
-	fs.StringVar(&cfg.consoleKeymap, "console-keymap", cfg.consoleKeymap, "console keymap passed to archinstall")
+	fs.StringVar(&cfg.consoleKeymap, "console-keymap", cfg.consoleKeymap, "console keymap")
 	fs.StringVar(&cfg.chezmoiKeyLayout, "chezmoi-key-layout", cfg.chezmoiKeyLayout, "chezmoi key_layout value")
 	fs.StringVar(&cfg.machineName, "machine-name", cfg.machineName, "chezmoi machine_name value")
-	fs.StringVar(&cfg.outputDir, "output-dir", cfg.outputDir, "directory for rendered JSON")
+	fs.StringVar(&cfg.outputDir, "output-dir", cfg.outputDir, "directory for install plan output")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -273,7 +273,7 @@ var fields = []fieldSpec{
 	{label: "Console keymap", help: "Linux console keymap.", placeholder: "us"},
 	{label: "Chezmoi layout", help: "Chezmoi key_layout value.", placeholder: "colemak"},
 	{label: "Machine name", help: "Chezmoi machine_name value.", placeholder: profileRGX1},
-	{label: "Output dir", help: "Directory for archinstall JSON.", placeholder: "/run/hz-install"},
+	{label: "Output dir", help: "Directory for install plan output.", placeholder: "/run/hz-install"},
 }
 
 type model struct {
@@ -540,9 +540,9 @@ func (m model) View() tea.View {
 			kv("Kernels", "linux, linux-lts"),
 			kv("Desktop", "Sway + Waybar + PipeWire"),
 			"",
-			warnStyle.Render("Install mode asks the backend for exact disk and password confirmation."),
+			warnStyle.Render("Install mode runs the native Go backend (sgdisk, LUKS, pacstrap); confirms disk and passwords."),
 			"",
-			"r/Enter  render JSON",
+			"r/Enter  dry-run plan",
 			"i        install",
 			"e        edit",
 			"Esc      quit",

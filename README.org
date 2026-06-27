@@ -7,7 +7,7 @@ named ~hz-install-tui~.
 The installer is intentionally a TUI instead of a graphical installer. It
 collects the install choices, reviews the destructive disk plan, asks for an
 exact disk confirmation, then hands the generated configuration to
-~archinstall~. The shell backend ~hz-install~ remains available as a scriptable
+a native Go backend (~hz-install~). The TUI and CLI remain available as a scriptable
 fallback.
 
 #+BEGIN_QUOTE
@@ -31,26 +31,22 @@ Target profiles are selected with ~--profile~:
   Install kernels are stock ~linux~, ~linux-lts~, and ~linux-rg~ (additive;
   stock kernels remain for rollback and dual-vendor safety).
 
-** Best path (dual Intel+AMD live media + linux-rg + 16GB USB + elja)
+** Best path (bootable ISO now: stock kernels, dual Intel+AMD, 16GB USB)
 
-Decision summary for bootable installer media aimed at the Terra AM5 machine
-described in the ~linux-rg~ tree, while remaining useful on Intel x86_64 boxes
-(e.g. ~rgx1gen11~ ThinkPad) from the same 16GB stick.
-
-Elja login/compute images are *not* Arch. All ~makepkg~ / ~mkarchiso~ work runs
-inside a privileged ~podman~ ~archlinux:base-devel~ container on an interactive
-~srun~ allocation controlled from ~tmux~ on the login node. Host packages alone
-are insufficient; the container *is* the Arch-capable builder.
+Ship a *normal* hzArchiso ISO without ~linux-rg~ so ~make aur-repo~ / ~make build~
+do not wait on a custom kernel. Terra still installs with
+~hz-install --profile rgam5terra~ on stock ~linux~ / ~linux-lts~ plus
+~amd-ucode~ and NVIDIA open DKMS. Live boot stays generic ~linux~ with both
+microcodes so the same stick boots Intel and AMD. Optional later: add
+~linux-rg~ via ~HZARCHISO_PREBUILT_DIR~ (see elja section).
 
 | Topic | Choice |
-| Live ISO architecture | ~x86_64~ only (no aarch64/ARM ISO) |
-| Dual-vendor hardware | Ship both ~intel-ucode~ and ~amd-ucode~; EFI/syslinux/GRUB early-load *both* microcode images before the stock live ~initramfs-linux.img~ |
-| Live boot kernel | Stock Arch ~linux~ only (~vmlinuz-linux~ / ~initramfs-linux.img~). Not an AMD-only / znver5-only sole live kernel. ~linux-rg~ may be *packaged* on the ISO for offline install but does not replace the live boot entry |
-| Terra install kernels | ~linux~, ~linux-lts~, and ~linux-rg~ (additive). ~hz-install --profile rgam5terra~ also adds ~linux-rg-headers~, ~amd-ucode~, NVIDIA open DKMS stack, and ~tuned~ / ~tuned-ppd~ |
-| How ~linux-rg~ is produced | In Arch container: ~LINUX_RG_PROFILE=rgam5terra makepkg~ from the ~linux-rg~ tree (not on AUR). Packages land in ~HZARCHISO_PREBUILT_DIR~ |
-| How packages enter hzArchiso | ~aurpkgs.txt~ lists ~linux-rg~ and ~linux-rg-headers~; ~make aur-repo~ injects matching ~${pkg}-[0-9]*.pkg.tar*~ from ~HZARCHISO_PREBUILT_DIR~ into ~file:///repo/hzarchiso~. Missing prebuilts fail closed: ~missing prebuilt package for non-AUR package: linux-rg~ |
-| Primary builder | Elja: ~tmux~ → ~srun --pty~ → ~podman run … archlinux:base-devel~ (kernel makepkg, then ~make aur-repo~ / ~make build~). Any native Arch host works the same without the container |
-| USB target | Aim ISO under ~14GB~ for a 16GB stick; artifacts under ~out/~ (or documented elja work path) |
+| Live ISO architecture | ~x86_64~ only |
+| Dual-vendor hardware | ~intel-ucode~ + ~amd-ucode~ early-loaded on EFI/syslinux/GRUB |
+| Live + install kernels (this ISO) | Stock ~linux~ and ~linux-lts~ only (fast path; no custom kernel build) |
+| Terra profile | ~rgam5terra~: amd-ucode, nvidia-open-dkms stack, tuned; not laptop tlp/thermald |
+| ISO artifact | ~out/*.iso~ after ~make build~ (local Arch/container or elja ~podman~) |
+| USB target | Aim under ~14GB~ on a 16GB stick |
 
 ** Methodology
 The profile uses the standard ~archiso~ workflow. Daily-driver packages from
@@ -61,7 +57,7 @@ repository is named ~hzarchiso~ and is mounted at ~file:///repo/hzarchiso~.
 ** Software Included
 The exact live package list is in ~hzLinux/packages.x86_64~. The installed
 system package set is rendered by ~hzLinux/airootfs/usr/local/bin/hz-install~
-into the ~archinstall~ JSON files.
+into a printed install plan (and on real install, the encrypted Btrfs layout).
 
 The current profile emphasizes:
 
@@ -130,20 +126,33 @@ Non-dry-run installs require root, a whole-disk block device, exact disk
 confirmation, root/user passwords, and a disk encryption password.
 
 * Build Steps
-Build and validation should run on an Arch builder or in an Arch container.
-~linux-rg~ / ~linux-rg-headers~ are listed in ~aurpkgs.txt~ and are *not* on
-AUR: place finished packages in ~HZARCHISO_PREBUILT_DIR~ first.
+** Preferred: native Arch (this machine) — one script
+
+No Docker. You need ~sudo~ for ~/repo/hzarchiso~ and ~mkarchiso~; the agent
+does not. Stock-kernel ISO (no ~linux-rg~ in ~aurpkgs.txt~ for this path):
+
+#+begin_src bash
+cd /home/rgoswami/Git/Github/HaoZeke/hzArchiso   # or your checkout
+./scripts/hzarchiso-build-iso-native
+# ISO:  ./out/*.iso
+# log:  ./out/build-iso-native.log
+# optional: CLEAN_WORK=1 ./scripts/hzarchiso-build-iso-native
+#+end_src
+
+Manual equivalent on native Arch:
 
 #+begin_src bash
 sudo install -d -o "$(id -u)" -g "$(id -g)" /repo/hzarchiso
-export HZARCHISO_PREBUILT_DIR=/path/to/prebuilt
-# must contain linux-rg-[0-9]*.pkg.tar* and linux-rg-headers-[0-9]*.pkg.tar*
 HZARCHISO_INSTALL_BUILT=1 make aur-repo
 make tui-check
 make check
 make repo-check
 make build
+# same as: sudo mkarchiso -v -w work -o out hzLinux
 #+end_src
+
+Optional later: add ~linux-rg~ to ~aurpkgs.txt~ only after placing packages in
+~HZARCHISO_PREBUILT_DIR~.
 
 The ~aur-repo~ target builds package bases from AUR metadata, adds direct-clone
 legacy AUR bases when the RPC result is unavailable, copies packages supplied by
