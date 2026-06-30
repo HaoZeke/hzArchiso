@@ -16,5 +16,6 @@ This tree holds Org sources in the same spirit as LODE/readcon-core
 | [[file:installer.org][installer.org]] | TUI and CLI usage, confirmation rules |
 | [[file:profiles.org][profiles.org]] | ~rgx1gen11~, ~rgSURFLat~, ~rgam5terra~ |
 | [[file:build.org][build.org]] | Build ISO, checks, prebuilts |
+| [[file:hardware-manifest.org][hardware-manifest.org]] | Exact hardware + package/kernel rationale |
 
 Root entry: [[file:../../README.org][README.org]].

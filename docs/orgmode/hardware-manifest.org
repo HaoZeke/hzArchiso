@@ -1,0 +1,197 @@
+#+title: Hardware manifest and profile rationale
+#+options: toc:2 num:t
+
+* Purpose
+
+This document is the *hardware contract* for hzArchiso machine profiles: exact
+(or option-matrix) hardware where known, why packages/kernel pins exist, and
+what must be verified on first boot. Installer deltas and linux-rg overlays
+must stay consistent with these tables.
+
+Live PCI/USB IDs for a given unit are recorded after install under the
+=Live probe= sections (fill on the target machine; CI does not invent them).
+
+Related:
+
+- Installer packages: =installer/hz-install-tui/install/packages.go=
+- Profile UX: [[file:profiles.org][profiles.org]], [[file:installer.org][installer.org]]
+- Kernel overlays (linux-rg): =docs/rgSURFLat-*.org=, =docs/rgx1gen11-*.org=,
+  =docs/rgam5terra-*.org= in the linux-rg repository
+
+* rgSURFLat — Dell Latitude 7430
+
+** Identity
+
+| Field | Value |
+| Profile slug | ~rgSURFLat~ |
+| OEM / family | Dell Latitude 7000 series |
+| Marketing model | Latitude 7430 (clamshell laptop *or* Latitude 7430 2-in-1) |
+| Chassis | 14-inch business ultrabook / optional 2-in-1 |
+| Primary design year | 2022 (12th Gen Intel “Alder Lake”) |
+| linux-rg | ~LINUX_RG_PROFILE=rgSURFLat~ |
+| Installer | ~hz-install --profile rgSURFLat~ / TUI menu index *2* |
+
+Dell Setup and Specifications (official option matrix) list multiple *factory
+CPU SKUs* on the same motherboard family. The profile optimizes for the common
+*U15* Alder Lake–U / Iris Xe class; P28 “P” SKUs remain Intel iGPU + SOF and
+are in-scope for the same package/kernel pins.
+
+** Exact CPU option matrix (Dell supported processors)
+
+Source: Dell *Latitude 7430 / Latitude 7430 2-in-1 Setup and Specifications*
+(processor table). All use *Intel Iris Xe* integrated graphics.
+
+| Option | Processor | Class | Cores / threads (typical) | Cache | iGPU |
+|--------|-----------|-------|---------------------------|-------|------|
+| 1 | Core i5-1235U | U15 (15 W) | 10C / 12T | 12 MB | Iris Xe |
+| 2 | Core i7-1255U | U15 | 10C / 12T | 12 MB | Iris Xe |
+| 3 | Core i5-1240P | P28 (28 W) | 12C / 16T | 12 MB | Iris Xe |
+| 4 | Core i5-1245U (vPro Enterprise) | U15 | 10C / 12T | 12 MB | Iris Xe |
+| 5 | Core i7-1265U (vPro Enterprise) | U15 | 10C / 12T | 12 MB | Iris Xe |
+| 6 | Core i5-1250P (vPro Enterprise) | P28 | 12C / 16T | 12 MB | Iris Xe |
+| 7 | Core i7-1270P (vPro Enterprise) | P28 | 12C / 16T | 18 MB | Iris Xe |
+
+*Unit under profile ownership:* fill after purchase.
+
+| Field | This unit (fill on first boot) |
+| Service Tag / Express Service Code | |
+| CPU (from =lscpu= / =cpuinfo=) | |
+| Memory capacity / speed | |
+| NVMe model / size | |
+| Display (FHD / touch / 2-in-1) | |
+| WLAN SKU | |
+| Fingerprint present? | yes / no |
+| WWAN / SmartCard / IR camera options | |
+
+** Display and chassis I/O (family)
+
+| Subsystem | Spec (family) |
+|-----------|----------------|
+| Display | 14" class; common FHD 1920×1080 60 Hz anti-glare non-touch ~250 nits; touch / 2-in-1 variants exist |
+| Thunderbolt | *Two* USB-C Thunderbolt 4 ports with Power Delivery and DisplayPort 1.4 Alt Mode |
+| USB-A | One USB 3.2 Gen 1 Type-A with PowerShare |
+| Video out | HDMI 2.0 (in addition to TB4 DP Alt Mode) |
+| Audio jack | Universal headset jack |
+| Storage card | microSD reader |
+| Lock | Wedge-shaped security lock slot |
+| Optional | microSIM (WWAN), Smart Card reader, fingerprint reader, IR camera / physical shutter |
+
+** Network (family)
+
+| Subsystem | Spec |
+|-----------|------|
+| WLAN (typical retail/config) | Intel Wi-Fi 6E AX211 2×2 802.11ax + Bluetooth (Dell lists AX211 class) |
+| Kernel modules | =iwlwifi= / =iwlmvm=; BT =btusb= + =btintel= |
+| Firmware | =linux-firmware= iwlwifi images; =wireless-regdb= |
+| Optional WWAN | 4G LTE or 5G (SKU-dependent); not assumed by installer packages |
+
+** Graphics and media
+
+| Subsystem | Spec / stack |
+|-----------|--------------|
+| GPU | Intel Iris Xe (shared memory); *no* NVIDIA/AMD dGPU on this model line |
+| Kernel | =i915= / =xe= (linux-rg pins both for 7.x) |
+| Userspace | =mesa=, =vulkan-intel=, =intel-media-driver=, =libva-utils= |
+| Microcode | =intel-ucode= (early load via initramfs / installer package list) |
+
+** Audio
+
+| Subsystem | Spec / stack |
+|-----------|--------------|
+| Codec path | Intel SOF on Alder Lake / Tiger Lake PCH audio (Sound Open Firmware) |
+| Packages | =sof-firmware= + =linux-firmware=; PipeWire stack from shared installer list |
+| Kernel | =CONFIG_SND_SOC_SOF_INTEL_TGL=m=, =CONFIG_SND_SOC_SOF_INTEL_ADL=m= (rgSURFLat overlay) |
+
+** Platform / EC / sensors
+
+| Subsystem | Linux support intent |
+|-----------|----------------------|
+| Dell SMBIOS / WMI | =dell-smbios=, =dell-wmi=, privacy / descriptor / DDV where applicable |
+| Laptop keys / RF kill | =dell-laptop=, =dell-rbtn= |
+| Thermal sensors | =dell-smm-hwmon= (=CONFIG_SENSORS_DELL_SMM=) |
+| Power | =tlp=, =tlp-rdw=, =thermald=, =intel_pstate=, =intel_idle= |
+| Firmware updates | =fwupd= (LVFS; Dell capsules when published) |
+
+** Fingerprint (optional SKU)
+
+Many Latitude 7430 builds include a fingerprint reader that needs a *vendor
+TOD* blob under libfprint (historically Broadcom on Dell business lines).
+
+| Layer | Package |
+|-------|---------|
+| Userspace daemon | =fprintd= (official repos — always in profile delta) |
+| Proprietary TOD | =libfprint-2-tod1-broadcom= or successor (*AUR / vendor*; **not** a hard gate) |
+
+Install TOD only if =lsusb= shows the reader and =fprintd= cannot enroll.
+
+** Power / sleep rationale
+
+Modern Latitude firmware often prefers *S0ix* (modern standby) over legacy S3.
+Hibernation is *best-effort* until validated on the unit’s BIOS revision.
+Installer keeps TLP + thermald; do not enable hibernation blindly.
+
+** Package / kernel rationale map
+
+| Hardware need | Installer / policy | Kernel / overlay |
+|---------------|--------------------|------------------|
+| Alder Lake CPU errata | =intel-ucode= | Arch/linux-rg base |
+| Iris Xe display + Vulkan | =mesa=, =vulkan-intel= | =DRM_I915=, =DRM_XE= |
+| VA-API media | =intel-media-driver=, =libva-utils= | media drivers in base |
+| SOF audio | =sof-firmware= | SOF Intel TGL/ADL pins |
+| AX211 Wi-Fi / BT | =linux-firmware=, =wireless-regdb= | =IWLWIFI=, =btusb=; modprobe =rgSURFLat-iwlwifi.conf= |
+| Battery / thermals | =tlp=, =tlp-rdw=, =thermald= | intel_pstate, intel_idle, Dell sensors |
+| Dell platform | (kernel) | =CONFIG_DELL_*= in =rgSURFLat.config= |
+| Fingerprint enroll | =fprintd= (+ optional AUR TOD) | USB HID / vendor |
+| Explicitly *out* | No =amd-ucode=, no NVIDIA, no =tuned= | No znver5 / AMD dGPU patches |
+
+** Live probe checklist (run on the unit)
+
+#+begin_src shell
+sudo dmidecode -s system-product-name
+sudo dmidecode -s system-version
+sudo dmidecode -s system-serial-number
+lscpu | sed -n '1,20p'
+lspci -nnk | rg -i 'vga|display|network|audio|thunderbolt|nvm'
+lsusb
+journalctl -b -k | rg -i 'iwlwifi|i915|sof|dell|thunderbolt|mei'
+#+end_src
+
+Record outputs in the “This unit” table above or in linux-rg
+=docs/rgSURFLat-targets.org=.
+
+* rgx1gen11 — ThinkPad X1 Carbon Gen 11 (reference)
+
+Exact inventory is owned by the daily-driver unit (see linux-rg
+=docs/rgx1gen11-targets.org= / =docs/rgx1gen11-drivers.org=). Summary for
+installer rationale:
+
+| Field | Value (documented daily driver) |
+| Product | Lenovo ThinkPad X1 Carbon Gen 11 (e.g. 21HM002GUS class) |
+| CPU | Intel Core i7-1365U (Raptor Lake-P/U, 2P+8E) |
+| iGPU | Iris Xe (PCI 8086:a7a1 on bench notes) |
+| WLAN | Intel CNVi AX211-class (e.g. 8086:51f1) + USB BT 8087:0033 |
+| Storage | NVMe (e.g. KIOXIA XG8 1 TB class) |
+| Installer packages | Shared laptop set (TLP/thermald); no Latitude-only Intel delta |
+| Kernel | ~LINUX_RG_PROFILE=rgx1gen11~ (ThinkPad ACPI, AX211 checks) |
+
+* rgam5terra — AM5 RTX desktop (reference)
+
+Receipt-backed SKUs live in linux-rg =docs/rgam5terra-targets.org= (“Full build
+listing”). Installer rationale:
+
+| Field | Value |
+| Case | Fractal Terra (Jade) mini-ITX class |
+| CPU | AMD Ryzen 9 9950X (Zen 5) |
+| GPU | NVIDIA GeForce RTX 5070 class (open kernel module) |
+| Board | ASRock B650I Lightning WiFi (AM5) |
+| Installer | Drop TLP stack; add =amd-ucode=, =nvidia-open-dkms= stack, =tuned= |
+| Kernel | ~LINUX_RG_PROFILE=rgam5terra= (znver5 RDSEED patch gated) |
+
+* Maintenance
+
+When hardware changes (RAM upgrade, WLAN swap, different Latitude CPU SKU):
+
+1. Update the “This unit” table (rgSURFLat) or linux-rg targets.org.
+2. Adjust package deltas only if a *new class* of device appears (e.g. discrete
+   GPU — would need a new profile, not a silent delta).
+3. Re-run =make tui-check= and linux-rg =scripts/linux-rg-profile-selftest=.

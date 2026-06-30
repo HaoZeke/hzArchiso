@@ -3,6 +3,10 @@
 
 * Purpose
 
+Exact SKUs, option matrices, and *why* packages/kernel pins exist:
+[[file:hardware-manifest.org][hardware-manifest.org]].
+
+
 Profiles select *package deltas*, *hostname / machine_name defaults*, and
 chezmoi ~have_cuda~. Kernels on the installed system are stock ~linux~ and
 ~linux-lts~ (custom ~linux-rg~ is optional via prebuilts / post-install).
@@ -28,6 +32,7 @@ kernel: ~LINUX_RG_PROFILE=<slug> makepkg~.
 | Excluded | Terra-only ~amd-ucode~, NVIDIA stack, ~tuned~ |
 | Kernel | ~LINUX_RG_PROFILE=rgSURFLat~ (Dell WMI / Intel pins) |
 | Fingerprint | ~fprintd~ from repos; Broadcom TOD blob is AUR-only if needed |
+| Hardware detail | Full CPU option matrix, ports, WLAN, live probe: [[file:hardware-manifest.org][hardware-manifest.org]] |
 
 * rgam5terra
 
