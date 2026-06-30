@@ -74,4 +74,29 @@ need_plan "$terra_plan" "linux linux-lts" "rgam5terra must keep stock linux kern
 need_plan "$terra_plan" 'machine_name = "rgam5terra"' "rgam5terra machine name missing"
 need_plan "$terra_plan" 'have_cuda = "yes"' "rgam5terra CUDA flag missing"
 
+surf_out="$tmpdir/surflat"
+HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
+    --dry-run \
+    --profile rgSURFLat \
+    --target-disk /dev/testdisk \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --console-keymap us \
+    --chezmoi-key-layout colemak \
+    --output-dir "$surf_out" >/dev/null
+
+surf_plan="$surf_out/install-plan.txt"
+test -s "$surf_plan" || fail "missing rgSURFLat install-plan.txt"
+need_plan "$surf_plan" "hostname=rgSURFLat" "rgSURFLat hostname was not rendered"
+need_plan "$surf_plan" 'machine_name = "rgSURFLat"' "rgSURFLat machine name missing"
+need_plan "$surf_plan" 'have_cuda = "no"' "rgSURFLat must not enable CUDA"
+for pkg in intel-ucode mesa vulkan-intel sof-firmware tlp thermald; do
+    need_plan "$surf_plan" "  - $pkg" "rgSURFLat package missing: $pkg"
+done
+for pkg in amd-ucode nvidia-open-dkms tuned; do
+    if grep -F "  - $pkg" "$surf_plan" >/dev/null; then
+        fail "rgSURFLat should not install terra-only package: $pkg"
+    fi
+done
+
 printf 'ok\n'

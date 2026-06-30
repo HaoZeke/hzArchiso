@@ -17,7 +17,7 @@ func main() {
 	)
 	fs := flag.NewFlagSet("hz-install", flag.ExitOnError)
 	fs.BoolVar(&cfg.DryRun, "dry-run", false, "print the install plan but do not install")
-	fs.StringVar(&cfg.Profile, "profile", cfg.Profile, "machine profile: rgx1gen11 or rgam5terra")
+	fs.StringVar(&cfg.Profile, "profile", cfg.Profile, "machine profile: rgx1gen11, rgam5terra, or rgSURFLat")
 	fs.StringVar(&cfg.TargetDisk, "target-disk", cfg.TargetDisk, "whole disk to partition")
 	fs.Func("hostname", "installed hostname", func(s string) error {
 		cfg.Hostname = s

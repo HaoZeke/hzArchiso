@@ -24,6 +24,12 @@ Target profiles are selected with ~--profile~:
 
 - ~rgx1gen11~ keeps the ThinkPad laptop defaults and remains the default when
   no profile is specified.
+- ~rgSURFLat~ targets a Dell Latitude 7430 (Intel Alder Lake–class ultrabook):
+  retains the laptop power stack (~tlp~, ~tlp-rdw~, ~thermald~) and adds
+  ~intel-ucode~, Mesa / ~vulkan-intel~, ~intel-media-driver~, ~sof-firmware~,
+  and related Intel media/Wi‑Fi firmware packages. No NVIDIA / AMD desktop
+  extras. Pair with ~LINUX_RG_PROFILE=rgSURFLat~ in linux-rg for kernel
+  overlays and Dell platform drivers.
 - ~rgam5terra~ selects the Terra AM5 desktop target with AMD microcode,
   ~linux-rg~ / ~linux-rg-headers~ (prebuilt into the ~hzarchiso~ custom repo),
   NVIDIA open DKMS drivers, NVIDIA userspace/OpenCL tooling, and tuned. It
@@ -45,6 +51,7 @@ microcodes so the same stick boots Intel and AMD. Optional later: add
 | Dual-vendor hardware | ~intel-ucode~ + ~amd-ucode~ early-loaded on EFI/syslinux/GRUB |
 | Live + install kernels (this ISO) | Stock ~linux~ and ~linux-lts~ only (fast path; no custom kernel build) |
 | Terra profile | ~rgam5terra~: amd-ucode, nvidia-open-dkms stack, tuned; not laptop tlp/thermald |
+| Latitude profile | ~rgSURFLat~: Dell Latitude 7430 Intel laptop stack (ucode, mesa/vulkan-intel, SOF, tlp/thermald) |
 | ISO artifact | ~out/*.iso~ after ~make build~ (local Arch/container or elja ~podman~) |
 | USB target | Aim under ~14GB~ on a 16GB stick |
 

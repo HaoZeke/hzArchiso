@@ -8,10 +8,14 @@ import (
 func TestExtraPackagesProfileDelta(t *testing.T) {
 	rgx1 := ExtraPackagesForProfile(ProfileRGX1)
 	terra := ExtraPackagesForProfile(ProfileAM5Terra)
+	surf := ExtraPackagesForProfile(ProfileRGSURFLat)
 
 	for _, pkg := range []string{"tlp", "tlp-rdw", "thermald", "chezmoi", "greetd-tuigreet"} {
 		if !ContainsPackage(ProfileRGX1, pkg) {
 			t.Fatalf("rgx1 missing %s", pkg)
+		}
+		if !ContainsPackage(ProfileRGSURFLat, pkg) {
+			t.Fatalf("rgSURFLat missing laptop package %s", pkg)
 		}
 	}
 	for _, pkg := range TerraRemovePackages() {
@@ -26,12 +30,74 @@ func TestExtraPackagesProfileDelta(t *testing.T) {
 		if ContainsPackage(ProfileRGX1, pkg) {
 			t.Fatalf("rgx1 should not include terra package %s", pkg)
 		}
+		if ContainsPackage(ProfileRGSURFLat, pkg) {
+			t.Fatalf("rgSURFLat should not include terra package %s", pkg)
+		}
+	}
+	sharedSet := map[string]struct{}{}
+	for _, p := range SharedExtraPackages() {
+		sharedSet[p] = struct{}{}
+	}
+	for _, pkg := range SurfLatAddPackages() {
+		if !ContainsPackage(ProfileRGSURFLat, pkg) {
+			t.Fatalf("rgSURFLat missing Intel/Latitude package %s", pkg)
+		}
+		if _, dup := sharedSet[pkg]; dup {
+			t.Fatalf("SurfLatAddPackages must not duplicate shared package %s", pkg)
+		}
+		if ContainsPackage(ProfileRGX1, pkg) {
+			t.Fatalf("rgx1 should not include rgSURFLat delta package %s", pkg)
+		}
+		if ContainsPackage(ProfileAM5Terra, pkg) {
+			t.Fatalf("terra should not include rgSURFLat delta package %s", pkg)
+		}
 	}
 	if len(terra) != len(rgx1)-len(TerraRemovePackages())+len(TerraAddPackages()) {
 		t.Fatalf("unexpected terra package count: terra=%d rgx1=%d", len(terra), len(rgx1))
 	}
+	if len(surf) != len(rgx1)+len(SurfLatAddPackages()) {
+		t.Fatalf("unexpected rgSURFLat package count: surf=%d rgx1=%d", len(surf), len(rgx1))
+	}
 	if ContainsPackage(ProfileRGX1, "kanata") {
 		t.Fatal("kanata must not be in installer packages")
+	}
+}
+
+func TestRGSURFLatPlanDefaults(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Profile = ProfileRGSURFLat
+	if err := ApplyProfileDefaults(&cfg, true, true); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Hostname != ProfileRGSURFLat || cfg.MachineName != ProfileRGSURFLat {
+		t.Fatalf("defaults hostname=%q machine=%q", cfg.Hostname, cfg.MachineName)
+	}
+	cfg.TargetDisk = "/dev/nvme0n1"
+	p, err := BuildPlan(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom := strings.Join(p.CustomCmds, "\n")
+	if !strings.Contains(custom, `machine_name = "rgSURFLat"`) {
+		t.Fatal(custom)
+	}
+	if !strings.Contains(custom, `have_cuda = "no"`) {
+		t.Fatal("rgSURFLat should have_cuda=no")
+	}
+	var buf strings.Builder
+	if err := FormatPlan(&buf, p); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, pkg := range []string{"intel-ucode", "mesa", "vulkan-intel", "sof-firmware", "tlp", "thermald"} {
+		if !strings.Contains(out, "  - "+pkg) {
+			t.Fatalf("plan missing %s", pkg)
+		}
+	}
+	for _, pkg := range []string{"nvidia-open-dkms", "amd-ucode", "tuned"} {
+		if ContainsPackage(ProfileRGSURFLat, pkg) {
+			t.Fatalf("rgSURFLat must not include terra package %s", pkg)
+		}
 	}
 }
 

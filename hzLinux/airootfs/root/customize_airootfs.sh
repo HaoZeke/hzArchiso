@@ -1,4 +1,7 @@
 #!/bin/bash
+groupadd -f users 2>/dev/null || true
+groupadd -f wheel 2>/dev/null || true
+set +e
 
 set -e -u
 

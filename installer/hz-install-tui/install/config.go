@@ -10,6 +10,7 @@ import (
 const (
 	ProfileRGX1     = "rgx1gen11"
 	ProfileAM5Terra = "rgam5terra"
+	ProfileRGSURFLat = "rgSURFLat"
 
 	DefaultUsername         = "rgoswami"
 	DefaultTimezone         = "America/Chicago"
@@ -63,7 +64,7 @@ func DefaultConfig() Config {
 
 func ValidProfile(profile string) bool {
 	switch profile {
-	case ProfileRGX1, ProfileAM5Terra:
+	case ProfileRGX1, ProfileAM5Terra, ProfileRGSURFLat:
 		return true
 	default:
 		return false
@@ -76,6 +77,8 @@ func ProfileDefaultName(profile string) (string, bool) {
 		return ProfileRGX1, true
 	case ProfileAM5Terra:
 		return ProfileAM5Terra, true
+	case ProfileRGSURFLat:
+		return ProfileRGSURFLat, true
 	default:
 		return "", false
 	}

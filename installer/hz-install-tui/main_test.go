@@ -127,3 +127,22 @@ func TestProfileFieldUpdatesHostDefaults(t *testing.T) {
 		t.Fatalf("machineName = %q, want rgam5terra", m.cfg.machineName)
 	}
 }
+
+func TestParseArgsAppliesRGSURFLatProfileDefaults(t *testing.T) {
+	cfg, err := parseArgs([]string{
+		"--profile", "rgSURFLat",
+		"--target-disk", "/dev/nvme0n1",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("parseArgs returned error: %v", err)
+	}
+	if cfg.profile != "rgSURFLat" {
+		t.Fatalf("profile = %q, want rgSURFLat", cfg.profile)
+	}
+	if cfg.hostname != "rgSURFLat" {
+		t.Fatalf("hostname = %q, want rgSURFLat", cfg.hostname)
+	}
+	if cfg.machineName != "rgSURFLat" {
+		t.Fatalf("machineName = %q, want rgSURFLat", cfg.machineName)
+	}
+}

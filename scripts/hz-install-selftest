@@ -96,6 +96,29 @@ need_plan "$terra_plan" "linux linux-lts" "rgam5terra must keep stock kernels"
 need_plan "$terra_plan" 'machine_name = "rgam5terra"' "rgam5terra machine name missing"
 need_plan "$terra_plan" 'have_cuda = "yes"' "rgam5terra CUDA flag missing"
 
+surf_out="$tmpdir/surflat"
+"$installer" \
+    --dry-run \
+    --profile rgSURFLat \
+    --target-disk /dev/testdisk \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --output-dir "$surf_out" >/dev/null
+
+surf_plan="$surf_out/install-plan.txt"
+test -s "$surf_plan" || fail "missing rgSURFLat install-plan.txt"
+need_plan "$surf_plan" "hostname=rgSURFLat" "rgSURFLat hostname was not set"
+need_plan "$surf_plan" 'machine_name = "rgSURFLat"' "rgSURFLat machine name missing"
+need_plan "$surf_plan" 'have_cuda = "no"' "rgSURFLat must not enable CUDA"
+for pkg in intel-ucode mesa vulkan-intel intel-media-driver sof-firmware tlp tlp-rdw thermald; do
+    need_plan "$surf_plan" "  - $pkg" "rgSURFLat package missing: $pkg"
+done
+for pkg in amd-ucode nvidia-open-dkms tuned tuned-ppd; do
+    if grep -F "  - $pkg" "$surf_plan" >/dev/null; then
+        fail "rgSURFLat should not install terra-only package: $pkg"
+    fi
+done
+
 if "$installer" --dry-run --profile nope --target-disk /dev/testdisk --output-dir "$tmpdir/bad-profile" >/dev/null 2>&1; then
     fail "unsupported profile should fail"
 fi

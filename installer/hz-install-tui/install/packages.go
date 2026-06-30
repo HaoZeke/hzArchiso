@@ -163,25 +163,48 @@ func TerraAddPackages() []string {
 	}
 }
 
-// ExtraPackagesForProfile applies the rgam5terra package delta to the shared list.
+// SurfLatAddPackages are added on rgSURFLat (Dell Latitude 7430 Intel laptop stack).
+// Keeps SharedExtraPackages laptop power stack (tlp / tlp-rdw / thermald).
+// Fingerprint proprietary Broadcom TOD blob is AUR-only; document post-install.
+func SurfLatAddPackages() []string {
+	return []string{
+		"intel-ucode",
+		"mesa",
+		"vulkan-intel",
+		"intel-media-driver",
+		"libva-utils",
+		"sof-firmware",
+		"wireless-regdb",
+		"fprintd",
+	}
+}
+
+// ExtraPackagesForProfile applies profile package deltas to the shared list.
 func ExtraPackagesForProfile(profile string) []string {
 	pkgs := append([]string(nil), SharedExtraPackages()...)
-	if profile != ProfileAM5Terra {
+	switch profile {
+	case ProfileAM5Terra:
+		remove := map[string]struct{}{}
+		for _, p := range TerraRemovePackages() {
+			remove[p] = struct{}{}
+		}
+		out := make([]string, 0, len(pkgs)+len(TerraAddPackages()))
+		for _, p := range pkgs {
+			if _, drop := remove[p]; drop {
+				continue
+			}
+			out = append(out, p)
+		}
+		out = append(out, TerraAddPackages()...)
+		return out
+	case ProfileRGSURFLat:
+		out := make([]string, 0, len(pkgs)+len(SurfLatAddPackages()))
+		out = append(out, pkgs...)
+		out = append(out, SurfLatAddPackages()...)
+		return out
+	default:
 		return pkgs
 	}
-	remove := map[string]struct{}{}
-	for _, p := range TerraRemovePackages() {
-		remove[p] = struct{}{}
-	}
-	out := make([]string, 0, len(pkgs)+len(TerraAddPackages()))
-	for _, p := range pkgs {
-		if _, drop := remove[p]; drop {
-			continue
-		}
-		out = append(out, p)
-	}
-	out = append(out, TerraAddPackages()...)
-	return out
 }
 
 // PacstrapPackages is the full set passed to pacstrap -K.
