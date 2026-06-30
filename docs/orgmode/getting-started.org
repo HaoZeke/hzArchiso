@@ -1,0 +1,47 @@
+#+title: Getting started
+#+options: toc:2 num:nil
+
+* Boot the live image
+
+1. Write ~out/*.iso~ to USB (e.g. ~dd~ or ~balenaEtcher~).
+2. Boot in UEFI mode. The greeter is ~greetd~ + ~tuigreet~.
+3. Live credentials (see also ~README.org~):
+
+#+begin_example
+username: hzlinarch
+password: hzlinarch
+#+end_example
+
+If the greeter fails on odd firmware, use ~Ctrl-Alt-F3~, log in, run ~sway~.
+
+* First commands on the live system
+
+#+begin_src shell
+# Interactive installer (profile menu, per-field validation, exact disk confirm)
+hz-install-tui
+
+# Print an install plan without touching disks
+hz-install --dry-run --profile rgSURFLat --target-disk /dev/nvme0n1 \
+  --output-dir /run/hz-install-plan
+less /run/hz-install-plan/install-plan.txt
+#+end_src
+
+Supported profiles (TUI shows a numbered menu; CLI uses the slug):
+
+| Slug | Machine |
+|------|---------|
+| ~rgx1gen11~ | ThinkPad X1 Carbon Gen 11 (default) |
+| ~rgSURFLat~ | Dell Latitude 7430 (Intel laptop stack) |
+| ~rgam5terra~ | AM5 Terra desktop (NVIDIA + tuned) |
+
+See [[file:profiles.org][profiles.org]] and [[file:installer.org][installer.org]].
+
+* After install
+
+The backend enables NetworkManager and runs:
+
+#+begin_src shell
+chezmoi init --apply HaoZeke --branch chezmoi
+#+end_src
+
+with ~machine_name~ / ~key_layout~ / ~have_cuda~ set from the profile.

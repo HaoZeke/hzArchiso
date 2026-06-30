@@ -1,5 +1,9 @@
 Welcome to hzArchiso (hzLinux live image).
 
-Run hz-install-tui for the hzArchiso machine-profile installer.
-Run hz-install --dry-run --target-disk /dev/DISK to print
-the native encrypted-Btrfs install plan without installing.
+Interactive installer (profile menu, field checks, disk confirmation):
+  hz-install-tui
+
+Dry-run install plan (no wipe) — profiles: rgx1gen11 | rgSURFLat | rgam5terra
+  hz-install --dry-run --profile rgSURFLat --target-disk /dev/DISK
+
+Docs (on the USB / git checkout): docs/orgmode/getting-started.org

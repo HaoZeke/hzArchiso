@@ -1,3 +1,13 @@
+* Documentation (Org mode)
+
+Structured docs (readcon-core-style Org sources):
+
+- [[file:docs/orgmode/index.org][docs/orgmode/index.org]] — index
+- [[file:docs/orgmode/getting-started.org][getting-started.org]] — boot live USB and first commands
+- [[file:docs/orgmode/installer.org][installer.org]] — TUI/CLI ergonomics and confirmation rules
+- [[file:docs/orgmode/profiles.org][profiles.org]] — ~rgx1gen11~, ~rgSURFLat~, ~rgam5terra~
+- [[file:docs/orgmode/build.org][build.org]] — ~make tui-check~, ISO build
+
 * About
 This is a custom Arch Linux live USB for setting up encrypted machine
 installations. The live environment boots into a Sway-capable system with

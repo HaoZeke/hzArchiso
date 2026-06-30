@@ -1,0 +1,75 @@
+#+title: Installer (TUI and CLI)
+#+options: toc:2 num:t
+
+* Design
+
+The installer is *not* archinstall. A Bubble Tea TUI (~hz-install-tui~) collects
+choices; a Go backend (~hz-install~) prints a plan or performs LUKS2 + Btrfs +
+systemd-boot installation.
+
+#+begin_example
+  hz-install-tui  -->  validate choices  -->  hz-install [--dry-run]
+       |                                         |
+   profile menu                            sgdisk / cryptsetup
+   field checks                            pacstrap / bootctl
+   exact disk confirm                      chezmoi bootstrap
+#+end_example
+
+* Interactive TUI
+
+#+begin_src shell
+hz-install-tui
+# or with defaults pre-filled:
+hz-install-tui --profile rgSURFLat --target-disk /dev/nvme0n1
+#+end_src
+
+** Steps
+
+1. *Welcome* — lists profiles with numbers and summaries; Enter continues.
+2. *Install choices* — fields for profile, disk, hostname, user, timezone,
+   keymap, chezmoi layout, machine name, output dir.
+   - Profile accepts *slug* or *1-based index* from the on-screen list.
+   - Enter / Tab validate the current field before advancing; errors stay on
+     the field (red message). Shift-Tab moves back.
+3. *Review* — summary including profile description; ~r~ or Enter dry-runs;
+   ~i~ starts install; ~e~ returns to editing.
+4. *Confirm* — re-type the *exact* target disk path; mismatch blocks install.
+
+** Keys (consistent footer)
+
+| Step | Keys |
+|------|------|
+| Welcome | Enter continue · Esc quit |
+| Input | Enter accept · Tab next · Shift-Tab prev · Esc quit |
+| Review | r/Enter dry-run · i install · e edit · Esc quit |
+| Confirm | type exact disk · Enter install · Esc quit |
+
+* CLI backend
+
+#+begin_src shell
+hz-install --dry-run \
+  --profile rgx1gen11 \
+  --target-disk /dev/nvme0n1 \
+  --username rgoswami \
+  --timezone America/Chicago \
+  --output-dir /run/hz-install
+#+end_src
+
+Real installs require root, interactive confirmation, and
+~HZ_INSTALL_ALLOW_DESTRUCTIVE=1~ (safety arming). Prefer the TUI on the live USB.
+
+* Environment
+
+| Variable | Meaning |
+|----------|---------|
+| ~HZ_INSTALL_BACKEND~ | Path to ~hz-install~ when invoking the TUI |
+| ~HZ_INSTALL_ALLOW_DESTRUCTIVE~ | Must be ~1~ for non-dry-run installs |
+
+* Checks
+
+#+begin_src shell
+make tui-test    # go test ./...
+make tui-check   # tests + build binaries + selftests
+./scripts/hz-install-selftest
+./scripts/hz-install-tui-selftest
+#+end_src

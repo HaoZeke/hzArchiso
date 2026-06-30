@@ -17,23 +17,23 @@ func main() {
 	)
 	fs := flag.NewFlagSet("hz-install", flag.ExitOnError)
 	fs.BoolVar(&cfg.DryRun, "dry-run", false, "print the install plan but do not install")
-	fs.StringVar(&cfg.Profile, "profile", cfg.Profile, "machine profile: rgx1gen11, rgam5terra, or rgSURFLat")
-	fs.StringVar(&cfg.TargetDisk, "target-disk", cfg.TargetDisk, "whole disk to partition")
-	fs.Func("hostname", "installed hostname", func(s string) error {
+	fs.StringVar(&cfg.Profile, "profile", cfg.Profile, "machine profile: rgx1gen11 (default), rgSURFLat (Latitude 7430), or rgam5terra (AM5 Terra desktop)")
+	fs.StringVar(&cfg.TargetDisk, "target-disk", cfg.TargetDisk, "whole disk to wipe and partition (required; /dev/…)")
+	fs.Func("hostname", "installed hostname (defaults from profile)", func(s string) error {
 		cfg.Hostname = s
 		hostnameSet = true
 		return nil
 	})
 	fs.StringVar(&cfg.Username, "username", cfg.Username, "primary sudo user")
-	fs.StringVar(&cfg.Timezone, "timezone", cfg.Timezone, "installed timezone")
+	fs.StringVar(&cfg.Timezone, "timezone", cfg.Timezone, "installed timezone (IANA)")
 	fs.StringVar(&cfg.ConsoleKeymap, "console-keymap", cfg.ConsoleKeymap, "console keymap")
 	fs.StringVar(&cfg.ChezmoiKeyLayout, "chezmoi-key-layout", cfg.ChezmoiKeyLayout, "chezmoi key_layout value")
-	fs.Func("machine-name", "chezmoi machine_name value", func(s string) error {
+	fs.Func("machine-name", "chezmoi machine_name (defaults from profile)", func(s string) error {
 		cfg.MachineName = s
 		machineNameSet = true
 		return nil
 	})
-	fs.StringVar(&cfg.OutputDir, "output-dir", cfg.OutputDir, "directory for install plan output")
+	fs.StringVar(&cfg.OutputDir, "output-dir", cfg.OutputDir, "directory for install-plan.txt")
 	// defaults for hostname/machine when flags not set — apply after parse
 	_ = fs.Parse(os.Args[1:])
 

@@ -1,0 +1,44 @@
+#+title: Build and check
+#+options: toc:2 num:t
+
+* Prerequisites
+
+- Arch Linux (or compatible) with ~archiso~, Go toolchain, and build deps
+- Root for ~mkarchiso~ / ISO work directories
+
+* Common targets
+
+#+begin_src shell
+# Unit tests for installer
+make tui-test
+
+# Build TUI + backend into hzLinux airootfs and run selftests
+make tui-check
+
+# Profile / usability / AUR repo checks (no full ISO)
+make check
+
+# Local AUR/custom repo for the live image
+make aur-repo
+make repo-check
+
+# Full ISO (destructive work/ out dirs; needs sudo)
+make build
+#+end_src
+
+* Installer binaries
+
+~make tui~ writes:
+
+- ~hzLinux/airootfs/usr/local/bin/hz-install-tui~
+- ~hzLinux/airootfs/usr/local/bin/hz-install~
+
+* Optional linux-rg prebuilts
+
+See ~README.org~ (elja / ~HZARCHISO_PREBUILT_DIR~). Terra and laptop profiles
+install on stock kernels; ~linux-rg~ is additive when present.
+
+* Documentation sources
+
+Org sources live under ~docs/orgmode/~ (this file). Keep them in sync when
+profiles or installer UX change.

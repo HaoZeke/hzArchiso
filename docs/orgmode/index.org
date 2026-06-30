@@ -1,0 +1,20 @@
+#+title: hzArchiso documentation
+#+options: toc:2 num:nil
+
+* Overview
+
+~hzArchiso~ builds a custom Arch Linux live image (~hzLinux~) and ships a
+*native Go* installer (~hz-install~ / ~hz-install-tui~) for encrypted Btrfs
+machine installs with Sway and chezmoi bootstrap.
+
+This tree holds Org sources in the same spirit as LODE/readcon-core
+~docs/orgmode~: sectioned =#+title= documents with copy-paste command blocks.
+
+| Doc | Contents |
+|-----|----------|
+| [[file:getting-started.org][getting-started.org]] | Boot the live USB, first commands |
+| [[file:installer.org][installer.org]] | TUI and CLI usage, confirmation rules |
+| [[file:profiles.org][profiles.org]] | ~rgx1gen11~, ~rgSURFLat~, ~rgam5terra~ |
+| [[file:build.org][build.org]] | Build ISO, checks, prebuilts |
+
+Root entry: [[file:../../README.org][README.org]].

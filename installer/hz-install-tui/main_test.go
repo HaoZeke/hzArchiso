@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// (view helpers below use tea.View.Content)
+
 func testConfig() installConfig {
 	cfg := defaultConfig()
 	cfg.targetDisk = "/dev/nvme0n1"
@@ -145,4 +147,107 @@ func TestParseArgsAppliesRGSURFLatProfileDefaults(t *testing.T) {
 	if cfg.machineName != "rgSURFLat" {
 		t.Fatalf("machineName = %q, want rgSURFLat", cfg.machineName)
 	}
+}
+
+func TestParseArgsResolvesProfileIndex(t *testing.T) {
+	// Catalog order: 1=rgx1gen11, 2=rgSURFLat, 3=rgam5terra
+	cfg, err := parseArgs([]string{
+		"--profile", "2",
+		"--target-disk", "/dev/nvme0n1",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("parseArgs: %v", err)
+	}
+	if cfg.profile != profileRGSURFLat {
+		t.Fatalf("profile = %q, want %s", cfg.profile, profileRGSURFLat)
+	}
+	if cfg.hostname != profileRGSURFLat {
+		t.Fatalf("hostname = %q", cfg.hostname)
+	}
+}
+
+func TestResolveProfileInputRejectsUnknown(t *testing.T) {
+	if _, err := resolveProfileInput("nope"); err == nil {
+		t.Fatal("expected error")
+	}
+	if _, err := resolveProfileInput("99"); err == nil {
+		t.Fatal("expected out-of-range error")
+	}
+}
+
+func TestValidateFieldBlocksBadDiskAndProfile(t *testing.T) {
+	if err := validateField(fieldDisk, "sda"); err == nil {
+		t.Fatal("expected disk path error")
+	}
+	if err := validateField(fieldDisk, "/dev/nvme0n1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateField(fieldProfile, "nope"); err == nil {
+		t.Fatal("expected profile error")
+	}
+	if err := validateField(fieldProfile, "1"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInputStepRejectsInvalidFieldBeforeAdvance(t *testing.T) {
+	m := newModel(testConfig())
+	m.step = stepInput
+	m.field = fieldProfile
+	m.loadField()
+	m.input.SetValue("not-a-profile")
+	updated, _ := m.Update(keyPress("enter"))
+	got := updated.(model)
+	if got.field != fieldProfile {
+		t.Fatalf("should stay on profile field, got %v", got.field)
+	}
+	if got.err == "" {
+		t.Fatal("expected validation error on bad profile")
+	}
+	if got.step != stepInput {
+		t.Fatalf("step = %v, want stepInput", got.step)
+	}
+}
+
+func TestProfileIndexInTUIUpdatesDefaults(t *testing.T) {
+	m := newModel(testConfig())
+	m.field = fieldProfile
+	m.loadField()
+	m.input.SetValue("2")
+	m.saveField()
+	if m.cfg.profile != profileRGSURFLat {
+		t.Fatalf("profile = %q", m.cfg.profile)
+	}
+	if m.cfg.hostname != profileRGSURFLat || m.cfg.machineName != profileRGSURFLat {
+		t.Fatalf("hostname/machine = %q / %q", m.cfg.hostname, m.cfg.machineName)
+	}
+}
+
+func TestWelcomeAndInputViewsExposeProfilesAndKeys(t *testing.T) {
+	m := newModel(testConfig())
+	welcome := viewContent(m)
+	for _, need := range []string{"rgx1gen11", "rgSURFLat", "rgam5terra", "keys:", "Enter"} {
+		if !strings.Contains(welcome, need) {
+			t.Fatalf("welcome view missing %q in:\n%s", need, welcome)
+		}
+	}
+	m.step = stepInput
+	m.field = fieldProfile
+	m.loadField()
+	inputView := viewContent(m)
+	for _, need := range []string{"Profiles", "1)", "Tab", "Shift-Tab"} {
+		if !strings.Contains(inputView, need) {
+			t.Fatalf("input view missing %q in:\n%s", need, inputView)
+		}
+	}
+	m.step = stepReview
+	review := viewContent(m)
+	if !strings.Contains(review, "dry-run") || !strings.Contains(review, "exact disk") {
+		t.Fatalf("review missing cues:\n%s", review)
+	}
+}
+
+// viewContent extracts the text payload from the shipped View() path.
+func viewContent(m model) string {
+	return m.View().Content
 }

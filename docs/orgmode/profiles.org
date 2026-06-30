@@ -1,0 +1,50 @@
+#+title: Machine profiles
+#+options: toc:2 num:t
+
+* Purpose
+
+Profiles select *package deltas*, *hostname / machine_name defaults*, and
+chezmoi ~have_cuda~. Kernels on the installed system are stock ~linux~ and
+~linux-lts~ (custom ~linux-rg~ is optional via prebuilts / post-install).
+
+Pair laptop profiles with the matching linux-rg overlay when building a custom
+kernel: ~LINUX_RG_PROFILE=<slug> makepkg~.
+
+* rgx1gen11 (default)
+
+| Attribute | Value |
+|-----------|-------|
+| Form | ThinkPad X1 Carbon Gen 11 |
+| Packages | Shared laptop set including ~tlp~ / ~tlp-rdw~ / ~thermald~ |
+| CUDA | ~have_cuda=no~ |
+
+* rgSURFLat
+
+| Attribute | Value |
+|-----------|-------|
+| Form | Dell Latitude 7430 (Intel Alder Lake–U class) |
+| Packages | Laptop power stack *plus* ~intel-ucode~, ~mesa~, ~vulkan-intel~, |
+|  | ~intel-media-driver~, ~sof-firmware~, ~wireless-regdb~, ~fprintd~ |
+| Excluded | Terra-only ~amd-ucode~, NVIDIA stack, ~tuned~ |
+| Kernel | ~LINUX_RG_PROFILE=rgSURFLat~ (Dell WMI / Intel pins) |
+| Fingerprint | ~fprintd~ from repos; Broadcom TOD blob is AUR-only if needed |
+
+* rgam5terra
+
+| Attribute | Value |
+|-----------|-------|
+| Form | AM5 mini-ITX desktop (Fractal Terra class) |
+| Packages | Drops laptop TLP stack; adds ~amd-ucode~, ~nvidia-open-dkms~, |
+|  | ~nvidia-utils~, ~nvidia-settings~, ~opencl-nvidia~, ~tuned~, ~tuned-ppd~ |
+| CUDA | ~have_cuda=yes~ |
+
+* Selection
+
+TUI welcome and profile field list numbered choices. CLI:
+
+#+begin_src shell
+hz-install --dry-run --profile rgSURFLat --target-disk /dev/nvme0n1
+# TUI also accepts --profile 2  (index into the catalog)
+hz-install-tui --dry-run --profile 2 --target-disk /dev/nvme0n1 \
+  --output-dir /tmp/plan
+#+end_src

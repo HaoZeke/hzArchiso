@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -22,6 +23,84 @@ const (
 	profileRGSURFLat = "rgSURFLat"
 )
 
+// profileInfo is one supported machine profile (TUI menu + CLI help).
+type profileInfo struct {
+	slug    string
+	summary string
+}
+
+// supportedProfiles is the single catalog for validation, menus, and help text.
+func supportedProfiles() []profileInfo {
+	return []profileInfo{
+		{slug: profileRGX1, summary: "ThinkPad X1 Carbon Gen 11 laptop (default)"},
+		{slug: profileRGSURFLat, summary: "Dell Latitude 7430 Intel laptop (ucode, mesa, SOF, TLP)"},
+		{slug: profileAM5Terra, summary: "AM5 Terra desktop (amd-ucode, NVIDIA open, tuned)"},
+	}
+}
+
+func profilesHelpText() string {
+	parts := make([]string, 0, len(supportedProfiles()))
+	for i, p := range supportedProfiles() {
+		parts = append(parts, fmt.Sprintf("%d=%s", i+1, p.slug))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func profileSummary(slug string) string {
+	for _, p := range supportedProfiles() {
+		if p.slug == slug {
+			return p.summary
+		}
+	}
+	return ""
+}
+
+// resolveProfileInput accepts a slug or a 1-based menu index from the catalog.
+func resolveProfileInput(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("profile is required")
+	}
+	profiles := supportedProfiles()
+	if n, err := strconv.Atoi(raw); err == nil {
+		if n < 1 || n > len(profiles) {
+			return "", fmt.Errorf("profile index %d out of range (1-%d: %s)", n, len(profiles), profilesHelpText())
+		}
+		return profiles[n-1].slug, nil
+	}
+	for _, p := range profiles {
+		if p.slug == raw {
+			return p.slug, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported profile %q (choose %s)", raw, profilesHelpText())
+}
+
+func profileMenuLines() []string {
+	lines := make([]string, 0, len(supportedProfiles())+1)
+	lines = append(lines, mutedStyle.Render("Profiles (type number or slug):"))
+	for i, p := range supportedProfiles() {
+		lines = append(lines, fmt.Sprintf("  %d) %-12s  %s", i+1, p.slug, mutedStyle.Render(p.summary)))
+	}
+	return lines
+}
+
+// keysFooter renders consistent navigation hints for the active step.
+func keysFooter(step step) string {
+	switch step {
+	case stepWelcome:
+		return mutedStyle.Render("keys: Enter continue · Esc quit")
+	case stepInput:
+		return mutedStyle.Render("keys: Enter accept field · Tab next · Shift-Tab prev · Esc quit")
+	case stepReview:
+		return mutedStyle.Render("keys: r/Enter dry-run plan · i install · e edit · Esc quit")
+	case stepInstallConfirm:
+		return mutedStyle.Render("keys: type exact disk path · Enter install · Esc quit")
+	default:
+		return ""
+	}
+}
+
 var (
 	hostnameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,62}$`)
 	usernameRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]*[$]?$`)
@@ -34,11 +113,14 @@ var (
 			Foreground(lipgloss.Color("#D97706"))
 	mutedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280"))
+	errStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#DC2626"))
 	panelStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#00A884")).
 			Padding(1, 2).
-			Width(76)
+			Width(78)
 )
 
 type installConfig struct {
@@ -112,7 +194,7 @@ func parseArgs(args []string, output io.Writer) (installConfig, error) {
 	fs := flag.NewFlagSet("hz-install-tui", flag.ContinueOnError)
 	fs.SetOutput(output)
 	fs.BoolVar(&cfg.dryRun, "dry-run", false, "print the install plan but do not install")
-	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile: rgx1gen11, rgam5terra, or rgSURFLat")
+	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile slug or 1-based index ("+profilesHelpText()+")")
 	fs.StringVar(&cfg.targetDisk, "target-disk", cfg.targetDisk, "whole disk to partition")
 	fs.StringVar(&cfg.hostname, "hostname", cfg.hostname, "installed hostname")
 	fs.StringVar(&cfg.username, "username", cfg.username, "primary sudo user")
@@ -131,6 +213,13 @@ func parseArgs(args []string, output io.Writer) (installConfig, error) {
 	fs.Visit(func(f *flag.Flag) {
 		seen[f.Name] = true
 	})
+	if seen["profile"] {
+		resolved, err := resolveProfileInput(cfg.profile)
+		if err != nil {
+			return cfg, err
+		}
+		cfg.profile = resolved
+	}
 	if err := applyProfileDefaults(&cfg, !seen["hostname"], !seen["machine-name"]); err != nil {
 		return cfg, err
 	}
@@ -165,24 +254,70 @@ func validateConfig(cfg installConfig) error {
 }
 
 func validProfile(profile string) bool {
-	switch profile {
-	case profileRGX1, profileAM5Terra, profileRGSURFLat:
-		return true
-	default:
-		return false
-	}
+	_, err := resolveProfileInput(profile)
+	return err == nil
 }
 
 func profileDefaultName(profile string) (string, bool) {
-	switch profile {
-	case profileRGX1:
-		return profileRGX1, true
-	case profileAM5Terra:
-		return profileAM5Terra, true
-	case profileRGSURFLat:
-		return profileRGSURFLat, true
-	default:
+	slug, err := resolveProfileInput(profile)
+	if err != nil {
 		return "", false
+	}
+	return slug, true
+}
+
+// validateField checks one interactive field before leaving it.
+func validateField(f field, value string) error {
+	value = strings.TrimSpace(value)
+	switch f {
+	case fieldProfile:
+		_, err := resolveProfileInput(value)
+		return err
+	case fieldDisk:
+		if value == "" {
+			return errors.New("target disk is required (whole disk, e.g. /dev/nvme0n1)")
+		}
+		if !strings.HasPrefix(value, "/dev/") {
+			return errors.New("target disk must be an absolute /dev path")
+		}
+		return nil
+	case fieldHostname:
+		if !hostnameRe.MatchString(value) {
+			return fmt.Errorf("invalid hostname: %s", value)
+		}
+		return nil
+	case fieldUsername:
+		if !usernameRe.MatchString(value) {
+			return fmt.Errorf("invalid username: %s", value)
+		}
+		return nil
+	case fieldTimezone:
+		if value == "" {
+			return errors.New("timezone is required (IANA, e.g. America/Chicago)")
+		}
+		return nil
+	case fieldConsoleKeymap:
+		if value == "" {
+			return errors.New("console keymap is required")
+		}
+		return nil
+	case fieldChezmoiLayout:
+		if value == "" {
+			return errors.New("chezmoi key layout is required")
+		}
+		return nil
+	case fieldMachineName:
+		if value == "" {
+			return errors.New("machine name is required")
+		}
+		return nil
+	case fieldOutputDir:
+		if value == "" {
+			return errors.New("output dir is required")
+		}
+		return nil
+	default:
+		return nil
 	}
 }
 
@@ -268,15 +403,15 @@ type fieldSpec struct {
 }
 
 var fields = []fieldSpec{
-	{label: "Profile", help: "Machine profile for hardware packages and defaults.", placeholder: "rgx1gen11, rgam5terra, or rgSURFLat"},
-	{label: "Target disk", help: "Whole disk path. This installer wipes it.", placeholder: "/dev/nvme0n1"},
-	{label: "Hostname", help: "Installed system hostname.", placeholder: profileRGX1},
-	{label: "Username", help: "Primary sudo user.", placeholder: "rgoswami"},
-	{label: "Timezone", help: "IANA timezone.", placeholder: "America/Chicago"},
-	{label: "Console keymap", help: "Linux console keymap.", placeholder: "us"},
-	{label: "Chezmoi layout", help: "Chezmoi key_layout value.", placeholder: "colemak"},
-	{label: "Machine name", help: "Chezmoi machine_name value.", placeholder: profileRGX1},
-	{label: "Output dir", help: "Directory for install plan output.", placeholder: "/run/hz-install"},
+	{label: "Profile", help: "Hardware package set and hostname defaults. Pick a number from the list or type the slug.", placeholder: "1, 2, 3, or slug"},
+	{label: "Target disk", help: "Whole disk path that will be wiped (ESP + LUKS root).", placeholder: "/dev/nvme0n1"},
+	{label: "Hostname", help: "Installed system hostname (defaults from profile).", placeholder: profileRGX1},
+	{label: "Username", help: "Primary sudo user on the installed system.", placeholder: "rgoswami"},
+	{label: "Timezone", help: "IANA timezone for timedatectl.", placeholder: "America/Chicago"},
+	{label: "Console keymap", help: "Linux console keymap (loadkeys).", placeholder: "us"},
+	{label: "Chezmoi layout", help: "Chezmoi data.key_layout (keyboard layout policy).", placeholder: "colemak"},
+	{label: "Machine name", help: "Chezmoi data.machine_name (host policy selector).", placeholder: profileRGX1},
+	{label: "Output dir", help: "Directory for install-plan.txt and related artifacts.", placeholder: "/run/hz-install"},
 }
 
 type model struct {
@@ -323,13 +458,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleEnter()
 		case "tab":
 			if m.step == stepInput {
-				m.saveField()
+				if err := m.trySaveField(); err != nil {
+					m.err = err.Error()
+					return m, nil
+				}
+				m.err = ""
 				m.nextField()
 				return m, nil
 			}
 		case "shift+tab":
 			if m.step == stepInput {
-				m.saveField()
+				// Allow moving back even if current field is incomplete.
+				_ = m.trySaveFieldOptional()
+				m.err = ""
 				m.previousField()
 				return m, nil
 			}
@@ -373,11 +514,19 @@ func (m model) handleEnter() (tea.Model, tea.Cmd) {
 	switch m.step {
 	case stepWelcome:
 		m.step = stepInput
+		m.err = ""
 	case stepInput:
-		m.saveField()
+		if err := m.trySaveField(); err != nil {
+			m.err = err.Error()
+			return m, nil
+		}
+		m.err = ""
 		if m.field == fieldCount-1 {
+			if err := validateConfig(m.cfg); err != nil {
+				m.err = err.Error()
+				return m, nil
+			}
 			m.step = stepReview
-			m.err = ""
 			return m, nil
 		}
 		m.nextField()
@@ -391,7 +540,7 @@ func (m model) handleEnter() (tea.Model, tea.Cmd) {
 	case stepInstallConfirm:
 		confirmation := strings.TrimSpace(m.input.Value())
 		if confirmation != m.cfg.targetDisk {
-			m.err = "confirmation did not match target disk"
+			m.err = "confirmation did not match target disk — type the exact path shown above"
 			m.input.SetValue("")
 			return m, nil
 		}
@@ -416,12 +565,35 @@ func (m *model) loadField() {
 	m.input.Focus()
 }
 
-func (m *model) saveField() {
+// trySaveField validates and commits the current input field.
+func (m *model) trySaveField() error {
 	value := strings.TrimSpace(m.input.Value())
+	if err := validateField(m.field, value); err != nil {
+		return err
+	}
+	m.commitField(value)
+	return nil
+}
+
+// trySaveFieldOptional commits only when validation passes (used for Shift-Tab).
+func (m *model) trySaveFieldOptional() error {
+	value := strings.TrimSpace(m.input.Value())
+	if err := validateField(m.field, value); err != nil {
+		return err
+	}
+	m.commitField(value)
+	return nil
+}
+
+func (m *model) commitField(value string) {
 	switch m.field {
 	case fieldProfile:
 		oldProfile := m.cfg.profile
-		m.cfg.profile = value
+		slug, err := resolveProfileInput(value)
+		if err != nil {
+			return
+		}
+		m.cfg.profile = slug
 		m.applyInteractiveProfileDefaults(oldProfile)
 	case fieldDisk:
 		m.cfg.targetDisk = value
@@ -440,6 +612,17 @@ func (m *model) saveField() {
 	case fieldOutputDir:
 		m.cfg.outputDir = value
 	}
+}
+
+// saveField is retained for tests that set the input and commit without validation.
+func (m *model) saveField() {
+	value := strings.TrimSpace(m.input.Value())
+	if m.field == fieldProfile {
+		if slug, err := resolveProfileInput(value); err == nil {
+			value = slug
+		}
+	}
+	m.commitField(value)
 }
 
 func (m *model) applyInteractiveProfileDefaults(oldProfile string) {
@@ -501,36 +684,54 @@ func (m model) valueFor(f field) string {
 func (m model) View() tea.View {
 	switch m.step {
 	case stepWelcome:
-		return tea.NewView(panelStyle.Render(strings.Join([]string{
+		rows := []string{
 			titleStyle.Render("hzArchiso machine installer"),
 			"",
-			"Encrypted Btrfs machine profiles with Sway, chezmoi, and Colemak defaults.",
+			"Native Go installer: LUKS2 + Btrfs subvolumes + systemd-boot.",
+			"Desktop defaults: Sway, chezmoi, Colemak — profile selects hardware packages.",
 			"",
-			warnStyle.Render("This installer is destructive once you confirm a target disk."),
+		}
+		rows = append(rows, profileMenuLines()...)
+		rows = append(rows, "",
+			warnStyle.Render("Destructive once you confirm the exact target disk path."),
 			"",
-			"Enter  continue",
-			"Esc    quit",
-		}, "\n")) + "\n")
+			keysFooter(stepWelcome),
+		)
+		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
 	case stepInput:
 		spec := fields[m.field]
-		return tea.NewView(panelStyle.Render(strings.Join([]string{
+		rows := []string{
 			titleStyle.Render("Install choices"),
 			progressLine(m.field),
 			"",
-			spec.label,
+			titleStyle.Render(spec.label),
 			mutedStyle.Render(spec.help),
 			"",
-			m.input.View(),
-			"",
-			"Enter  accept",
-			"Tab    next",
-			"Esc    quit",
-		}, "\n")) + "\n")
+		}
+		if m.field == fieldProfile {
+			rows = append(rows, profileMenuLines()...)
+			rows = append(rows, "")
+		}
+		if m.field == fieldDisk {
+			rows = append(rows, warnStyle.Render("Warning: the selected disk will be fully repartitioned."), "")
+		}
+		rows = append(rows, m.input.View(), "")
+		if m.err != "" {
+			rows = append(rows, errStyle.Render("✗ "+m.err), "")
+		}
+		rows = append(rows, keysFooter(stepInput))
+		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
 	case stepReview:
+		summary := profileSummary(m.cfg.profile)
 		rows := []string{
 			titleStyle.Render("Review install plan"),
 			"",
 			kv("Profile", m.cfg.profile),
+		}
+		if summary != "" {
+			rows = append(rows, mutedStyle.Render("  "+summary))
+		}
+		rows = append(rows,
 			kv("Disk", m.cfg.targetDisk),
 			kv("Hostname", m.cfg.hostname),
 			kv("User", m.cfg.username),
@@ -539,38 +740,37 @@ func (m model) View() tea.View {
 			kv("Chezmoi layout", m.cfg.chezmoiKeyLayout),
 			kv("Machine name", m.cfg.machineName),
 			kv("Output dir", m.cfg.outputDir),
-			kv("Filesystem", "LUKS + Btrfs subvolumes"),
+			kv("Filesystem", "LUKS2 + Btrfs (@ @home @snapshots …)"),
 			kv("Kernels", "linux, linux-lts"),
 			kv("Desktop", "Sway + Waybar + PipeWire"),
 			"",
-			warnStyle.Render("Install mode runs the native Go backend (sgdisk, LUKS, pacstrap); confirms disk and passwords."),
+			warnStyle.Render("Install runs the native Go backend (sgdisk, LUKS, pacstrap)."),
+			warnStyle.Render("You must re-type the exact disk path before anything is wiped."),
 			"",
-			"r/Enter  dry-run plan",
-			"i        install",
-			"e        edit",
-			"Esc      quit",
-		}
+			keysFooter(stepReview),
+		)
 		if m.err != "" {
-			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
+			rows = append(rows[:2], append([]string{errStyle.Render("✗ " + m.err), ""}, rows[2:]...)...)
 		}
 		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
 	case stepInstallConfirm:
 		rows := []string{
 			titleStyle.Render("Confirm destructive install"),
 			"",
-			warnStyle.Render("This will erase the selected disk."),
+			warnStyle.Render("This will erase the selected disk. Passwords are collected next by the backend."),
 			"",
+			kv("Profile", m.cfg.profile),
 			kv("Disk", m.cfg.targetDisk),
+			kv("Hostname", m.cfg.hostname),
 			"",
 			"Type the exact disk path to continue:",
 			m.input.View(),
 			"",
-			"Enter  install",
-			"Esc    quit",
 		}
 		if m.err != "" {
-			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
+			rows = append(rows, errStyle.Render("✗ "+m.err), "")
 		}
+		rows = append(rows, keysFooter(stepInstallConfirm))
 		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
 	default:
 		return tea.NewView("")
