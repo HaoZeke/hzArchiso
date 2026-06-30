@@ -1,0 +1,601 @@
+package main
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
+
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
+
+const (
+	defaultBackend   = "/usr/local/bin/hz-install"
+	profileRGX1      = "rgx1gen11"
+	profileAM5Terra  = "rgam5terra"
+	profileRGSURFLat = "rgSURFLat"
+)
+
+var (
+	hostnameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,62}$`)
+	usernameRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]*[$]?$`)
+
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#00A884"))
+	warnStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#D97706"))
+	mutedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280"))
+	panelStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#00A884")).
+			Padding(1, 2).
+			Width(76)
+)
+
+type installConfig struct {
+	targetDisk       string
+	profile          string
+	hostname         string
+	username         string
+	timezone         string
+	consoleKeymap    string
+	chezmoiKeyLayout string
+	machineName      string
+	outputDir        string
+	dryRun           bool
+}
+
+func defaultConfig() installConfig {
+	return installConfig{
+		profile:          profileRGX1,
+		hostname:         profileRGX1,
+		username:         "rgoswami",
+		timezone:         "America/Chicago",
+		consoleKeymap:    "us",
+		chezmoiKeyLayout: "colemak",
+		machineName:      profileRGX1,
+		outputDir:        "/run/hz-install",
+	}
+}
+
+func main() {
+	cfg, err := parseArgs(os.Args[1:], os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "hz-install-tui: %v\n", err)
+		os.Exit(2)
+	}
+
+	if cfg.dryRun {
+		if err := validateConfig(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "hz-install-tui: %v\n", err)
+			os.Exit(2)
+		}
+		if err := runBackend(cfg, true); err != nil {
+			fmt.Fprintf(os.Stderr, "hz-install-tui: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	p := tea.NewProgram(newModel(cfg))
+	final, err := p.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "hz-install-tui: %v\n", err)
+		os.Exit(1)
+	}
+
+	m, ok := final.(model)
+	if !ok || m.action == actionNone {
+		return
+	}
+	if err := validateConfig(m.cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "hz-install-tui: %v\n", err)
+		os.Exit(2)
+	}
+	if err := runBackend(m.cfg, m.action == actionRender); err != nil {
+		fmt.Fprintf(os.Stderr, "hz-install-tui: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func parseArgs(args []string, output io.Writer) (installConfig, error) {
+	cfg := defaultConfig()
+	fs := flag.NewFlagSet("hz-install-tui", flag.ContinueOnError)
+	fs.SetOutput(output)
+	fs.BoolVar(&cfg.dryRun, "dry-run", false, "print the install plan but do not install")
+	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile: rgx1gen11, rgam5terra, or rgSURFLat")
+	fs.StringVar(&cfg.targetDisk, "target-disk", cfg.targetDisk, "whole disk to partition")
+	fs.StringVar(&cfg.hostname, "hostname", cfg.hostname, "installed hostname")
+	fs.StringVar(&cfg.username, "username", cfg.username, "primary sudo user")
+	fs.StringVar(&cfg.timezone, "timezone", cfg.timezone, "installed timezone")
+	fs.StringVar(&cfg.consoleKeymap, "console-keymap", cfg.consoleKeymap, "console keymap")
+	fs.StringVar(&cfg.chezmoiKeyLayout, "chezmoi-key-layout", cfg.chezmoiKeyLayout, "chezmoi key_layout value")
+	fs.StringVar(&cfg.machineName, "machine-name", cfg.machineName, "chezmoi machine_name value")
+	fs.StringVar(&cfg.outputDir, "output-dir", cfg.outputDir, "directory for install plan output")
+	if err := fs.Parse(args); err != nil {
+		return cfg, err
+	}
+	if fs.NArg() != 0 {
+		return cfg, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
+	}
+	seen := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) {
+		seen[f.Name] = true
+	})
+	if err := applyProfileDefaults(&cfg, !seen["hostname"], !seen["machine-name"]); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func validateConfig(cfg installConfig) error {
+	switch {
+	case !validProfile(cfg.profile):
+		return fmt.Errorf("unsupported profile: %s", cfg.profile)
+	case cfg.targetDisk == "":
+		return errors.New("--target-disk is required")
+	case !strings.HasPrefix(cfg.targetDisk, "/dev/"):
+		return errors.New("--target-disk must be an absolute /dev path")
+	case !hostnameRe.MatchString(cfg.hostname):
+		return fmt.Errorf("invalid hostname: %s", cfg.hostname)
+	case !usernameRe.MatchString(cfg.username):
+		return fmt.Errorf("invalid username: %s", cfg.username)
+	case strings.TrimSpace(cfg.timezone) == "":
+		return errors.New("--timezone is required")
+	case strings.TrimSpace(cfg.consoleKeymap) == "":
+		return errors.New("--console-keymap is required")
+	case strings.TrimSpace(cfg.chezmoiKeyLayout) == "":
+		return errors.New("--chezmoi-key-layout is required")
+	case strings.TrimSpace(cfg.machineName) == "":
+		return errors.New("--machine-name is required")
+	case strings.TrimSpace(cfg.outputDir) == "":
+		return errors.New("--output-dir is required")
+	default:
+		return nil
+	}
+}
+
+func validProfile(profile string) bool {
+	switch profile {
+	case profileRGX1, profileAM5Terra, profileRGSURFLat:
+		return true
+	default:
+		return false
+	}
+}
+
+func profileDefaultName(profile string) (string, bool) {
+	switch profile {
+	case profileRGX1:
+		return profileRGX1, true
+	case profileAM5Terra:
+		return profileAM5Terra, true
+	case profileRGSURFLat:
+		return profileRGSURFLat, true
+	default:
+		return "", false
+	}
+}
+
+func applyProfileDefaults(cfg *installConfig, setHostname, setMachineName bool) error {
+	defaultName, ok := profileDefaultName(cfg.profile)
+	if !ok {
+		return fmt.Errorf("unsupported profile: %s", cfg.profile)
+	}
+	if setHostname {
+		cfg.hostname = defaultName
+	}
+	if setMachineName {
+		cfg.machineName = defaultName
+	}
+	return nil
+}
+
+func runBackend(cfg installConfig, dryRun bool) error {
+	backend := os.Getenv("HZ_INSTALL_BACKEND")
+	if backend == "" {
+		backend = defaultBackend
+	}
+
+	args := make([]string, 0, 20)
+	if dryRun {
+		args = append(args, "--dry-run")
+	}
+	args = append(args,
+		"--profile", cfg.profile,
+		"--target-disk", cfg.targetDisk,
+		"--hostname", cfg.hostname,
+		"--username", cfg.username,
+		"--timezone", cfg.timezone,
+		"--console-keymap", cfg.consoleKeymap,
+		"--chezmoi-key-layout", cfg.chezmoiKeyLayout,
+		"--machine-name", cfg.machineName,
+		"--output-dir", cfg.outputDir,
+	)
+
+	cmd := exec.Command(backend, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+type step int
+
+const (
+	stepWelcome step = iota
+	stepInput
+	stepReview
+	stepInstallConfirm
+)
+
+type action int
+
+const (
+	actionNone action = iota
+	actionRender
+	actionInstall
+)
+
+type field int
+
+const (
+	fieldProfile field = iota
+	fieldDisk
+	fieldHostname
+	fieldUsername
+	fieldTimezone
+	fieldConsoleKeymap
+	fieldChezmoiLayout
+	fieldMachineName
+	fieldOutputDir
+	fieldCount
+)
+
+type fieldSpec struct {
+	label       string
+	help        string
+	placeholder string
+}
+
+var fields = []fieldSpec{
+	{label: "Profile", help: "Machine profile for hardware packages and defaults.", placeholder: "rgx1gen11, rgam5terra, or rgSURFLat"},
+	{label: "Target disk", help: "Whole disk path. This installer wipes it.", placeholder: "/dev/nvme0n1"},
+	{label: "Hostname", help: "Installed system hostname.", placeholder: profileRGX1},
+	{label: "Username", help: "Primary sudo user.", placeholder: "rgoswami"},
+	{label: "Timezone", help: "IANA timezone.", placeholder: "America/Chicago"},
+	{label: "Console keymap", help: "Linux console keymap.", placeholder: "us"},
+	{label: "Chezmoi layout", help: "Chezmoi key_layout value.", placeholder: "colemak"},
+	{label: "Machine name", help: "Chezmoi machine_name value.", placeholder: profileRGX1},
+	{label: "Output dir", help: "Directory for install plan output.", placeholder: "/run/hz-install"},
+}
+
+type model struct {
+	cfg    installConfig
+	step   step
+	field  field
+	input  textinput.Model
+	action action
+	err    string
+}
+
+func newModel(cfg installConfig) model {
+	ti := textinput.New()
+	ti.Prompt = "> "
+	ti.CharLimit = 128
+	ti.SetWidth(52)
+	ti.Focus()
+
+	m := model{
+		cfg:   cfg,
+		step:  stepWelcome,
+		field: fieldDisk,
+		input: ti,
+	}
+	m.loadField()
+	return m
+}
+
+func (m model) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			return m, tea.Quit
+		case "q":
+			if m.step != stepInput {
+				return m, tea.Quit
+			}
+		case "enter":
+			return m.handleEnter()
+		case "tab":
+			if m.step == stepInput {
+				m.saveField()
+				m.nextField()
+				return m, nil
+			}
+		case "shift+tab":
+			if m.step == stepInput {
+				m.saveField()
+				m.previousField()
+				return m, nil
+			}
+		case "r":
+			if m.step == stepReview {
+				if err := validateConfig(m.cfg); err != nil {
+					m.err = err.Error()
+					return m, nil
+				}
+				m.action = actionRender
+				return m, tea.Quit
+			}
+		case "i":
+			if m.step == stepReview {
+				if err := validateConfig(m.cfg); err != nil {
+					m.err = err.Error()
+					return m, nil
+				}
+				m.startInstallConfirmation()
+				return m, nil
+			}
+		case "e":
+			if m.step == stepReview {
+				m.step = stepInput
+				m.field = fieldDisk
+				m.loadField()
+				return m, nil
+			}
+		}
+	}
+
+	if m.step != stepInput && m.step != stepInstallConfirm {
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m model) handleEnter() (tea.Model, tea.Cmd) {
+	switch m.step {
+	case stepWelcome:
+		m.step = stepInput
+	case stepInput:
+		m.saveField()
+		if m.field == fieldCount-1 {
+			m.step = stepReview
+			m.err = ""
+			return m, nil
+		}
+		m.nextField()
+	case stepReview:
+		if err := validateConfig(m.cfg); err != nil {
+			m.err = err.Error()
+			return m, nil
+		}
+		m.action = actionRender
+		return m, tea.Quit
+	case stepInstallConfirm:
+		confirmation := strings.TrimSpace(m.input.Value())
+		if confirmation != m.cfg.targetDisk {
+			m.err = "confirmation did not match target disk"
+			m.input.SetValue("")
+			return m, nil
+		}
+		m.action = actionInstall
+		return m, tea.Quit
+	}
+	return m, nil
+}
+
+func (m *model) startInstallConfirmation() {
+	m.step = stepInstallConfirm
+	m.err = ""
+	m.input.Placeholder = m.cfg.targetDisk
+	m.input.SetValue("")
+	m.input.Focus()
+}
+
+func (m *model) loadField() {
+	spec := fields[m.field]
+	m.input.Placeholder = spec.placeholder
+	m.input.SetValue(m.valueFor(m.field))
+	m.input.Focus()
+}
+
+func (m *model) saveField() {
+	value := strings.TrimSpace(m.input.Value())
+	switch m.field {
+	case fieldProfile:
+		oldProfile := m.cfg.profile
+		m.cfg.profile = value
+		m.applyInteractiveProfileDefaults(oldProfile)
+	case fieldDisk:
+		m.cfg.targetDisk = value
+	case fieldHostname:
+		m.cfg.hostname = value
+	case fieldUsername:
+		m.cfg.username = value
+	case fieldTimezone:
+		m.cfg.timezone = value
+	case fieldConsoleKeymap:
+		m.cfg.consoleKeymap = value
+	case fieldChezmoiLayout:
+		m.cfg.chezmoiKeyLayout = value
+	case fieldMachineName:
+		m.cfg.machineName = value
+	case fieldOutputDir:
+		m.cfg.outputDir = value
+	}
+}
+
+func (m *model) applyInteractiveProfileDefaults(oldProfile string) {
+	newDefault, ok := profileDefaultName(m.cfg.profile)
+	if !ok {
+		return
+	}
+	oldDefault, ok := profileDefaultName(oldProfile)
+	if !ok {
+		oldDefault = ""
+	}
+	if m.cfg.hostname == "" || m.cfg.hostname == oldDefault {
+		m.cfg.hostname = newDefault
+	}
+	if m.cfg.machineName == "" || m.cfg.machineName == oldDefault {
+		m.cfg.machineName = newDefault
+	}
+}
+
+func (m *model) nextField() {
+	if m.field < fieldCount-1 {
+		m.field++
+	}
+	m.loadField()
+}
+
+func (m *model) previousField() {
+	if m.field > 0 {
+		m.field--
+	}
+	m.loadField()
+}
+
+func (m model) valueFor(f field) string {
+	switch f {
+	case fieldProfile:
+		return m.cfg.profile
+	case fieldDisk:
+		return m.cfg.targetDisk
+	case fieldHostname:
+		return m.cfg.hostname
+	case fieldUsername:
+		return m.cfg.username
+	case fieldTimezone:
+		return m.cfg.timezone
+	case fieldConsoleKeymap:
+		return m.cfg.consoleKeymap
+	case fieldChezmoiLayout:
+		return m.cfg.chezmoiKeyLayout
+	case fieldMachineName:
+		return m.cfg.machineName
+	case fieldOutputDir:
+		return m.cfg.outputDir
+	default:
+		return ""
+	}
+}
+
+func (m model) View() tea.View {
+	switch m.step {
+	case stepWelcome:
+		return tea.NewView(panelStyle.Render(strings.Join([]string{
+			titleStyle.Render("hzArchiso machine installer"),
+			"",
+			"Encrypted Btrfs machine profiles with Sway, chezmoi, and Colemak defaults.",
+			"",
+			warnStyle.Render("This installer is destructive once you confirm a target disk."),
+			"",
+			"Enter  continue",
+			"Esc    quit",
+		}, "\n")) + "\n")
+	case stepInput:
+		spec := fields[m.field]
+		return tea.NewView(panelStyle.Render(strings.Join([]string{
+			titleStyle.Render("Install choices"),
+			progressLine(m.field),
+			"",
+			spec.label,
+			mutedStyle.Render(spec.help),
+			"",
+			m.input.View(),
+			"",
+			"Enter  accept",
+			"Tab    next",
+			"Esc    quit",
+		}, "\n")) + "\n")
+	case stepReview:
+		rows := []string{
+			titleStyle.Render("Review install plan"),
+			"",
+			kv("Profile", m.cfg.profile),
+			kv("Disk", m.cfg.targetDisk),
+			kv("Hostname", m.cfg.hostname),
+			kv("User", m.cfg.username),
+			kv("Timezone", m.cfg.timezone),
+			kv("Console keymap", m.cfg.consoleKeymap),
+			kv("Chezmoi layout", m.cfg.chezmoiKeyLayout),
+			kv("Machine name", m.cfg.machineName),
+			kv("Output dir", m.cfg.outputDir),
+			kv("Filesystem", "LUKS + Btrfs subvolumes"),
+			kv("Kernels", "linux, linux-lts"),
+			kv("Desktop", "Sway + Waybar + PipeWire"),
+			"",
+			warnStyle.Render("Install mode runs the native Go backend (sgdisk, LUKS, pacstrap); confirms disk and passwords."),
+			"",
+			"r/Enter  dry-run plan",
+			"i        install",
+			"e        edit",
+			"Esc      quit",
+		}
+		if m.err != "" {
+			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
+		}
+		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
+	case stepInstallConfirm:
+		rows := []string{
+			titleStyle.Render("Confirm destructive install"),
+			"",
+			warnStyle.Render("This will erase the selected disk."),
+			"",
+			kv("Disk", m.cfg.targetDisk),
+			"",
+			"Type the exact disk path to continue:",
+			m.input.View(),
+			"",
+			"Enter  install",
+			"Esc    quit",
+		}
+		if m.err != "" {
+			rows = append(rows[:2], append([]string{warnStyle.Render(m.err), ""}, rows[2:]...)...)
+		}
+		return tea.NewView(panelStyle.Render(strings.Join(rows, "\n")) + "\n")
+	default:
+		return tea.NewView("")
+	}
+}
+
+func progressLine(current field) string {
+	parts := make([]string, 0, len(fields))
+	for i, spec := range fields {
+		name := spec.label
+		if len(name) > 12 {
+			name = name[:12]
+		}
+		if field(i) == current {
+			parts = append(parts, titleStyle.Render(name))
+		} else {
+			parts = append(parts, mutedStyle.Render(name))
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+func kv(label, value string) string {
+	if strings.TrimSpace(value) == "" {
+		value = "<unset>"
+	}
+	return fmt.Sprintf("%-15s %s", label+":", value)
+}

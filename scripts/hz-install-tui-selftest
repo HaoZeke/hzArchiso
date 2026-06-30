@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+tui_bin=${HZ_INSTALL_TUI_BIN:-"${repo_root}/hzLinux/airootfs/usr/local/bin/hz-install-tui"}
+backend=${HZ_INSTALL_BACKEND:-"${repo_root}/hzLinux/airootfs/usr/local/bin/hz-install"}
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+need_plan() {
+    local file="$1" needle="$2" message="$3"
+    grep -F -- "$needle" "$file" >/dev/null || fail "$message"
+}
+
+test -x "$backend" || fail "missing hz-install backend: $backend"
+test -x "$tui_bin" || fail "missing hz-install-tui binary: $tui_bin"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+out="$tmpdir/rendered"
+HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
+    --dry-run \
+    --target-disk /dev/testdisk \
+    --hostname rgx1gen11 \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --console-keymap us \
+    --chezmoi-key-layout colemak \
+    --machine-name rgx1gen11 \
+    --output-dir "$out" >/dev/null
+
+plan="$out/install-plan.txt"
+test -s "$plan" || fail "missing install-plan.txt from TUI dry-run"
+need_plan "$plan" "hostname=rgx1gen11" "hostname was not rendered"
+need_plan "$plan" "target_disk=/dev/testdisk" "target disk was not rendered"
+need_plan "$plan" "LUKS" "LUKS encryption was not rendered"
+need_plan "$plan" "linux linux-lts" "kernels missing"
+need_plan "$plan" "  - chezmoi" "chezmoi package missing"
+need_plan "$plan" "  - greetd-tuigreet" "tuigreet package missing"
+need_plan "$plan" "  - xdg-desktop-portal-wlr" "wlroots portal package missing"
+need_plan "$plan" "  - zram-generator" "zram package missing"
+if grep -F '  - kanata' "$plan" >/dev/null; then
+    fail "kanata should be installed by the post-install bootstrap"
+fi
+need_plan "$plan" 'key_layout = "colemak"' "chezmoi key layout missing"
+
+terra_out="$tmpdir/terra"
+HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
+    --dry-run \
+    --profile rgam5terra \
+    --target-disk /dev/testdisk \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --console-keymap us \
+    --chezmoi-key-layout colemak \
+    --output-dir "$terra_out" >/dev/null
+
+terra_plan="$terra_out/install-plan.txt"
+test -s "$terra_plan" || fail "missing rgam5terra install-plan.txt"
+need_plan "$terra_plan" "hostname=rgam5terra" "rgam5terra hostname was not rendered"
+for pkg in amd-ucode nvidia-open-dkms nvidia-utils nvidia-settings opencl-nvidia tuned tuned-ppd; do
+    need_plan "$terra_plan" "  - $pkg" "rgam5terra package missing: $pkg"
+done
+for pkg in tlp tlp-rdw thermald; do
+    if grep -F "  - $pkg" "$terra_plan" >/dev/null; then
+        fail "rgam5terra should not install laptop-only package: $pkg"
+    fi
+done
+need_plan "$terra_plan" "linux linux-lts" "rgam5terra must keep stock linux kernels"
+need_plan "$terra_plan" 'machine_name = "rgam5terra"' "rgam5terra machine name missing"
+need_plan "$terra_plan" 'have_cuda = "yes"' "rgam5terra CUDA flag missing"
+
+surf_out="$tmpdir/surflat"
+HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
+    --dry-run \
+    --profile rgSURFLat \
+    --target-disk /dev/testdisk \
+    --username rgoswami \
+    --timezone America/Chicago \
+    --console-keymap us \
+    --chezmoi-key-layout colemak \
+    --output-dir "$surf_out" >/dev/null
+
+surf_plan="$surf_out/install-plan.txt"
+test -s "$surf_plan" || fail "missing rgSURFLat install-plan.txt"
+need_plan "$surf_plan" "hostname=rgSURFLat" "rgSURFLat hostname was not rendered"
+need_plan "$surf_plan" 'machine_name = "rgSURFLat"' "rgSURFLat machine name missing"
+need_plan "$surf_plan" 'have_cuda = "no"' "rgSURFLat must not enable CUDA"
+for pkg in intel-ucode mesa vulkan-intel sof-firmware tlp thermald; do
+    need_plan "$surf_plan" "  - $pkg" "rgSURFLat package missing: $pkg"
+done
+for pkg in amd-ucode nvidia-open-dkms tuned; do
+    if grep -F "  - $pkg" "$surf_plan" >/dev/null; then
+        fail "rgSURFLat should not install terra-only package: $pkg"
+    fi
+done
+
+printf 'ok\n'

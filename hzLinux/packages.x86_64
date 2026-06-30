@@ -2,7 +2,6 @@
 amd-ucode
 intel-ucode
 arch-install-scripts
-archinstall
 b43-fwcutter
 base
 base-devel
@@ -12,7 +11,6 @@ broadcom-wl
 btrfs-progs
 clonezilla
 cloud-init
-crda
 cryptsetup
 darkhttpd
 ddrescue
@@ -33,7 +31,6 @@ exfat-utils
 f2fs-tools
 fatresize
 fsarchiver
-gnu-netcat
 gpart
 gpm
 gptfdisk
@@ -41,23 +38,22 @@ grml-zsh-config
 grub
 hdparm
 hyperv
-intel-ucode
-irssi
 irssi
 iw
 iwd
 jfsutils
+jq
 kitty-terminfo
 less
 lftp
-lftp
 libfido2
 libusb-compat
-lightdm-webkit2-greeter
-linux-nitrous
-linux-nitrous-headers
+linux
+linux-headers
 linux-firmware
 linux-firmware-marvell
+linux-lts
+linux-lts-headers
 livecd-sounds
 lsscsi
 lvm2
@@ -80,6 +76,7 @@ nmap
 ntfs-3g
 ntp
 nvme-cli
+openbsd-netcat
 open-iscsi
 open-vm-tools
 openconnect
@@ -94,8 +91,6 @@ pptpclient
 pv
 qemu-guest-agent
 refind
-reiserfsprogs
-rp-pppoe
 rp-pppoe
 rsync
 rxvt-unicode-terminfo
@@ -124,10 +119,8 @@ wireless-regdb
 wireless_tools
 wpa_supplicant
 wvdial
-wvdial
 xcb-util-errors
 xfsprogs
-xl2tpd
 xl2tpd
 zsh
 
@@ -135,42 +128,55 @@ zsh
 accountsservice
 age
 aria2
+brightnessctl
+btrbk
 chezmoi
 chrony
+cliphist
 dkms
-dnsutils
 emacs
+fwupd
+gammastep
 git
 gnome-backgrounds
 gparted
 gperf
-grml-zsh-config
-light
-lightdm
-lightdm
+greetd
+greetd-tuigreet
 lxsession
 neovim
+pipewire
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
 polkit
 sway
 swayidle
 swayimg
+tailscale
 thermald
-tmux
+tlp
+tlp-rdw
 ttf-opensans
 udiskie
 udisks2
 veracrypt
-wlroots
+wireplumber
+xdg-desktop-portal
+xdg-desktop-portal-wlr
+xdg-user-dirs
 waybar
+wob
+xorg-xwayland
+zram-generator
 
 # Networking
-blueberry
-iwd
 mosh
 networkmanager
 
 # Navigation
 caja
+fuzzel
 rofi
 rofi-calc
 
@@ -187,9 +193,7 @@ smplayer-skins
 
 # Audio
 pavucontrol
-pulseaudio
-pulseaudio-alsa
-pulseaudio-bluetooth
+gst-plugin-pipewire
 
 # Music
 audacious
@@ -199,7 +203,6 @@ pianobar
 
 # Cloud Management
 rclone
-pcloud-drive
 
 # Messaging
 telegram-desktop
@@ -208,14 +211,11 @@ telegram-desktop
 cronie
 unison
 
-# Encryption
-veracrypt
-cryptomator
-gnome-encfs-manager-bin
-
 # Screenshots
-teiler-git
 flameshot
+satty
+wf-recorder
+wl-clipboard
 
 # Browser
 falkon
@@ -235,36 +235,102 @@ vulkan-intel
 
 # Xorg
 xorg-server
-xorg-server-xwayland
 xorg-xauth
 
 # DM
-i3-gaps
 i3lock
 dunst
 
-# AUR [Local]
-rtl88xxau-aircrack-dkms-git
+# Privacy
+proxychains-ng
+
+# AUR/local repository payload
+ananicy
+cryptomator-bin
 enpass-bin
 grim-git
+gnome-encfs-manager-bin
 i3status-rust-git
 lightdm-webkit-theme-aether
+pcloud-drive
 networkmanager-dispatcher-chrony
+rtl88xxau-aircrack-dkms-git
 slurp-git
 swaybg-git
 swaylock-effects
+xininfo-git
 yay
 
-# Privacy
-windscribe-cli
-proxychains-ng
-
-# Helpers
-ananicy
-nitrogen
-
-# Dependencies
-xininfo-git
+# Immediate usability
+firefox
+chromium
+vivaldi
+vivaldi-ffmpeg-codecs
+obsidian
+libreoffice-fresh
+keepassxc
+gnome-keyring
+seahorse
+obs-studio
+kooha
+v4l2loopback-dkms
+v4l2loopback-utils
+vlc
+spotify-launcher
+element-desktop
+discord
+thunar
+thunar-archive-plugin
+thunar-media-tags-plugin
+thunar-volman
+tumbler
+engrampa
+ffmpegthumbnailer
+gvfs-mtp
+android-file-transfer
+android-tools
+flatpak
+bluez-utils
+alsa-utils
+pamixer
+playerctl
+nm-connection-editor
+networkmanager-openvpn
+openfortivpn
+bash-completion
+ripgrep
+fd
+btop
+ncdu
+tree
+trash-cli
+unzip
+unrar
+yazi
+zellij
+github-cli
+glab
+git-lfs
+shellcheck
+shfmt
+cmake
+meson
+gdb
+lldb
+strace
+python-pipx
+podman
+podman-compose
+reflector
+pacman-contrib
+noto-fonts
+noto-fonts-emoji
+ttf-jetbrains-mono-nerd
+otf-font-awesome
+kanshi
+wdisplays
+wlr-randr
+xdg-utils
 
 # Local Variables:
 # mode: conf

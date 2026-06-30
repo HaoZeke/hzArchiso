@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'USAGE'
+usage: hz-private-bundle-pack SOURCE_DIR OUTPUT_FILE
+
+Encrypt SOURCE_DIR as a tar payload for hz-private-bootstrap.
+
+Passphrase sources, in priority order:
+  HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE
+  HZ_PRIVATE_BUNDLE_PASSPHRASE
+  HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD
+USAGE
+}
+
+die() {
+    printf 'hz-private-bundle-pack: %s\n' "$*" >&2
+    exit 1
+}
+
+need() {
+    command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+make_pass_file() {
+    local pass_file
+    if [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE:-}" ]; then
+        [ -r "$HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE" ] || die "passphrase file is not readable"
+        printf '%s\n' "$HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE"
+        return 0
+    fi
+
+    pass_file=$(mktemp)
+    chmod 0600 "$pass_file"
+    if [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE:-}" ]; then
+        printf '%s\n' "$HZ_PRIVATE_BUNDLE_PASSPHRASE" >"$pass_file"
+    elif [ -n "${HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD:-}" ]; then
+        sh -c "$HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD" >"$pass_file"
+    else
+        rm -f "$pass_file"
+        die "set HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE, HZ_PRIVATE_BUNDLE_PASSPHRASE, or HZ_PRIVATE_BUNDLE_PASSPHRASE_CMD"
+    fi
+    printf '%s\n' "$pass_file"
+}
+
+[ "$#" -eq 2 ] || {
+    usage >&2
+    exit 2
+}
+
+source_dir=$1
+output_file=$2
+
+[ -d "$source_dir" ] || die "source directory does not exist: $source_dir"
+[ -f "$source_dir/manifest.json" ] || die "source directory missing manifest.json"
+[ -f "$source_dir/install.sh" ] || die "source directory missing install.sh"
+
+need openssl
+need tar
+
+pass_file=$(make_pass_file)
+cleanup_pass=0
+if [ "${HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE:-}" != "$pass_file" ]; then
+    cleanup_pass=1
+fi
+trap '[ "$cleanup_pass" -eq 0 ] || rm -f "$pass_file"' EXIT
+
+install -d -m 0755 "$(dirname -- "$output_file")"
+tmp_output=$(mktemp "${output_file}.tmp.XXXXXX")
+trap 'rm -f "$tmp_output"; [ "$cleanup_pass" -eq 0 ] || rm -f "$pass_file"' EXIT
+
+tar -C "$source_dir" -cf - . \
+    | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "file:$pass_file" -out "$tmp_output"
+
+chmod 0600 "$tmp_output"
+mv -f "$tmp_output" "$output_file"
+printf 'encrypted private bundle: %s\n' "$output_file"

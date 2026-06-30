@@ -1,0 +1,225 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+builder="${repo_root}/scripts/hzarchiso-aur-repo-build"
+checker="${repo_root}/scripts/hzarchiso-aur-repo-check"
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+write_pkg() {
+    local repo_dir="$1" pkg="$2" version="${3:-1-1}"
+    local pkgdir
+    pkgdir=$(mktemp -d)
+    cat >"${pkgdir}/.PKGINFO" <<EOF
+pkgname = ${pkg}
+pkgver = ${version}
+pkgdesc = test package
+builddate = 1
+packager = hzarchiso selftest
+size = 1
+arch = any
+EOF
+    tar -cf "${repo_dir}/${pkg}-${version}-any.pkg.tar" -C "$pkgdir" .PKGINFO
+    rm -rf "$pkgdir"
+}
+
+assert_fails() {
+    local repo_dir="$1" packages_file="$2" prebuilt_dir="$3" pattern="$4"
+    local out
+    if out=$(PATH="${fake_bin}:$PATH" \
+        BASH_ENV="$helper" \
+        HZARCHISO_SELFTEST_LOG="$log_dir" \
+        HZARCHISO_AUR_PACKAGES_FILE="$packages_file" \
+        HZARCHISO_ALLOW_ROOT_MAKEPKG=1 \
+        HZARCHISO_AUR_RPC_FILE="${tmpdir}/aur-rpc.json" \
+        HZARCHISO_PREBUILT_DIR="$prebuilt_dir" \
+        HZARCHISO_BUILD_DIR="${tmpdir}/build-fail" \
+        "$builder" "$repo_dir" 2>&1); then
+        fail "expected build to fail: $pattern"
+    fi
+    grep -q "$pattern" <<<"$out" || fail "missing failure pattern: $pattern"
+}
+
+command -v tar >/dev/null 2>&1 || fail "tar is required"
+command -v repo-add >/dev/null 2>&1 || fail "repo-add is required"
+test -x "$builder" || fail "missing builder: $builder"
+test -x "$checker" || fail "missing checker: $checker"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+fake_bin="${tmpdir}/bin"
+mkdir -p "$fake_bin"
+
+cat >"${fake_bin}/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$1" != clone ]; then
+    printf 'unexpected git invocation: %s\n' "$*" >&2
+    exit 1
+fi
+url="$2"
+dest="$3"
+base=${url##*/}
+base=${base%.git}
+# Non-AUR packages consumed only via HZARCHISO_PREBUILT_DIR.
+case "$base" in
+    binary-only|linux-rg|linux-rg-headers)
+        exit 1
+        ;;
+esac
+mkdir -p "$dest"
+printf '%s\n' "$base" >"${dest}/.hzarchiso-base"
+printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/git-clones"
+if [ "$base" = linux-nitrous ]; then
+    cat >"${dest}/PKGBUILD" <<'PKG'
+build() {
+  make LLVM=1 "$_defconfig"
+  make LLVM=1 LSMOD="$HOME/.config/modprobed.db" localmodconfig
+  KBUILD_BUILD_TIMESTAMP='' make LLVM=1 CC="ccache clang" ${makeflags} all
+  make LLVM=1 ${makeflags} all
+}
+
+_package() {
+  ZSTD_CLEVEL=19 make LLVM=1 INSTALL_MOD_PATH="${pkgdir}/usr" INSTALL_MOD_STRIP=1 \
+    DEPMOD=/does/not/exist modules_install
+}
+
+_package-headers() {
+  echo -e "\nLD = ld.lld" >> Makefile
+}
+PKG
+fi
+EOF
+chmod +x "${fake_bin}/git"
+
+cat >"${fake_bin}/makepkg" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+source_dir=$PWD
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -D|--dir)
+            source_dir="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+cd "$source_dir"
+base=$(cat .hzarchiso-base)
+printf '%s\n' "$base" >>"${HZARCHISO_SELFTEST_LOG}/makepkg-builds"
+if [ "$base" = linux-nitrous ]; then
+    grep -q 'make LLVM=1 LD=ld.bfd "$_defconfig"' PKGBUILD
+    grep -q 'make LLVM=1 LD=ld.bfd LSMOD=' PKGBUILD
+    grep -q 'make LLVM=1 LD=ld.bfd CC="ccache clang"' PKGBUILD
+    grep -q 'make LLVM=1 LD=ld.bfd ${makeflags} all' PKGBUILD
+    grep -q 'LD = ld.bfd' PKGBUILD
+    ! grep -q 'LD = ld.lld' PKGBUILD
+fi
+case "$base" in
+    split-base)
+        hzarchiso_write_pkg "$PWD" split-a
+        hzarchiso_write_pkg "$PWD" split-b
+        ;;
+    legacy-local)
+        hzarchiso_write_pkg "$PWD" legacy-local
+        ;;
+    *)
+        hzarchiso_write_pkg "$PWD" "$base"
+        ;;
+esac
+EOF
+chmod +x "${fake_bin}/makepkg"
+
+helper="${tmpdir}/helper.sh"
+cat >"$helper" <<'EOF'
+hzarchiso_write_pkg() {
+    local repo_dir="$1" pkg="$2" version="${3:-1-1}"
+    local pkgdir
+    pkgdir=$(mktemp -d)
+    cat >"${pkgdir}/.PKGINFO" <<PKG
+pkgname = ${pkg}
+pkgver = ${version}
+pkgdesc = test package
+builddate = 1
+packager = hzarchiso selftest
+size = 1
+arch = any
+PKG
+    tar -cf "${repo_dir}/${pkg}-${version}-any.pkg.tar" -C "$pkgdir" .PKGINFO
+    rm -rf "$pkgdir"
+}
+EOF
+
+packages_file="${tmpdir}/aurpkgs.txt"
+cat >"$packages_file" <<'EOF'
+split-a
+split-b
+linux-nitrous
+linux-rg
+linux-rg-headers
+legacy-local
+binary-only
+EOF
+
+cat >"${tmpdir}/aur-rpc.json" <<'EOF'
+{
+  "version": 5,
+  "type": "info",
+  "resultcount": 3,
+  "results": [
+    { "Name": "split-a", "PackageBase": "split-base" },
+    { "Name": "split-b", "PackageBase": "split-base" },
+    { "Name": "linux-nitrous", "PackageBase": "linux-nitrous" }
+  ]
+}
+EOF
+
+prebuilt_dir="${tmpdir}/prebuilt"
+repo_dir="${tmpdir}/repo"
+log_dir="${tmpdir}/log"
+mkdir -p "$prebuilt_dir" "$repo_dir" "$log_dir"
+write_pkg "$prebuilt_dir" binary-only
+# Distinct versions so find_prebuilt_package("${pkg}-*") does not collide
+# (linux-rg-headers-* would also match a linux-rg-* prefix search).
+write_pkg "$prebuilt_dir" linux-rg 7.0.12.rg-1
+write_pkg "$prebuilt_dir" linux-rg-headers 7.0.12.hdr-1
+
+PATH="${fake_bin}:$PATH" \
+BASH_ENV="$helper" \
+HZARCHISO_SELFTEST_LOG="$log_dir" \
+HZARCHISO_AUR_PACKAGES_FILE="$packages_file" \
+HZARCHISO_ALLOW_ROOT_MAKEPKG=1 \
+HZARCHISO_AUR_RPC_FILE="${tmpdir}/aur-rpc.json" \
+HZARCHISO_PREBUILT_DIR="$prebuilt_dir" \
+HZARCHISO_BUILD_DIR="${tmpdir}/build" \
+"$builder" "$repo_dir" >/dev/null
+
+"$checker" "$repo_dir" "$packages_file" >/dev/null
+
+if [ "$(grep -c '^split-base$' "${log_dir}/makepkg-builds")" -ne 1 ]; then
+    fail "split package base was not built exactly once"
+fi
+grep -q '^legacy-local$' "${log_dir}/git-clones" || fail "legacy package was not cloned directly"
+test -f "${repo_dir}/linux-rg-7.0.12.rg-1-any.pkg.tar" || fail "linux-rg prebuilt was not injected into repo"
+test -f "${repo_dir}/linux-rg-headers-7.0.12.hdr-1-any.pkg.tar" || fail "linux-rg-headers prebuilt was not injected into repo"
+
+missing_prebuilt_repo="${tmpdir}/repo-missing-prebuilt"
+missing_prebuilt_dir="${tmpdir}/empty-prebuilt"
+mkdir -p "$missing_prebuilt_repo" "$missing_prebuilt_dir"
+assert_fails "$missing_prebuilt_repo" "$packages_file" "$missing_prebuilt_dir" 'missing prebuilt package'
+
+# Declared non-AUR linux-rg fails closed with an explicit message when prebuilts are absent.
+linux_rg_only="${tmpdir}/linux-rg-only.txt"
+printf '%s\n' linux-rg linux-rg-headers >"$linux_rg_only"
+assert_fails "${tmpdir}/repo-linux-rg-missing" "$linux_rg_only" "$missing_prebuilt_dir" \
+    'missing prebuilt package for non-AUR package: linux-rg'
+
+printf 'ok\n'

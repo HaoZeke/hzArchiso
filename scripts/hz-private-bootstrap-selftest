@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+packer="$repo_root/scripts/hz-private-bundle-pack"
+bootstrap="$repo_root/hzLinux/airootfs/usr/local/bin/hz-private-bootstrap"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+fail() {
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
+}
+
+bundle_src="$tmp/source"
+target_root="$tmp/target"
+pass_file="$tmp/passphrase"
+wrong_pass_file="$tmp/wrong-passphrase"
+bundle="$tmp/profile.tar.openssl"
+
+install -d -m 0700 "$bundle_src" "$target_root"
+printf 'correct horse battery staple\n' >"$pass_file"
+printf 'wrong password\n' >"$wrong_pass_file"
+cat >"$bundle_src/manifest.json" <<'JSON'
+{
+  "version": 1,
+  "name": "test-private-profile",
+  "description": "selftest fixture"
+}
+JSON
+cat >"$bundle_src/install.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${HZ_TARGET_ROOT:?}"
+: "${HZ_TARGET_USER:?}"
+: "${HZ_BUNDLE_DIR:?}"
+
+install -d -m 0755 "$HZ_TARGET_ROOT/var/lib/hz-private-bootstrap"
+printf 'user=%s\n' "$HZ_TARGET_USER" >"$HZ_TARGET_ROOT/var/lib/hz-private-bootstrap/hook.log"
+test -f "$HZ_BUNDLE_DIR/manifest.json"
+SH
+chmod +x "$bundle_src/install.sh"
+
+HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE="$pass_file" "$packer" "$bundle_src" "$bundle"
+test -s "$bundle" || fail "packer did not create encrypted bundle"
+
+"$bootstrap" \
+    --target-root "$target_root" \
+    --username testuser \
+    --bundle "$tmp/missing.tar.openssl" \
+    --mode prompt
+
+if "$bootstrap" \
+    --target-root "$target_root" \
+    --username testuser \
+    --bundle "$tmp/missing.tar.openssl" \
+    --mode auto; then
+    fail "auto mode succeeded with a missing bundle"
+fi
+
+if HZ_PRIVATE_BOOTSTRAP_RUN_DIR="$tmp" HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE="$wrong_pass_file" "$bootstrap" \
+    --target-root "$target_root" \
+    --username testuser \
+    --bundle "$bundle" \
+    --mode auto; then
+    fail "bootstrap succeeded with a wrong passphrase"
+fi
+
+HZ_PRIVATE_BOOTSTRAP_RUN_DIR="$tmp" HZ_PRIVATE_BUNDLE_PASSPHRASE_FILE="$pass_file" "$bootstrap" \
+    --target-root "$target_root" \
+    --username testuser \
+    --bundle "$bundle" \
+    --mode auto
+
+grep -qx 'user=testuser' "$target_root/var/lib/hz-private-bootstrap/hook.log" \
+    || fail "bundle hook did not write expected target marker"
+
+printf 'ok\n'

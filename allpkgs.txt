@@ -1,6 +1,5 @@
 # Basic Packages
 arch-install-scripts
-archinstall
 b43-fwcutter
 base
 base-devel
