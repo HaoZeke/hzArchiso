@@ -28,13 +28,14 @@ less /run/hz-install-plan/install-plan.txt
 
 Supported profiles (TUI shows a numbered menu; CLI uses the slug):
 
-| Slug | Machine |
-|------|---------|
-| ~rgx1gen11~ | ThinkPad X1 Carbon Gen 11 (default) |
-| ~rgSURFLat~ | Dell Latitude 7430 (Intel laptop stack) |
-| ~rgam5terra~ | AM5 Terra desktop (NVIDIA + tuned) |
+| # | Slug | Machine |
+|---|-------|---------|
+| 1 | ~rgx1gen11~ | ThinkPad X1 Carbon Gen 11 **21HM002GUS** (default) |
+| 2 | ~rgSURFLat~ | Dell **Latitude 7430** (Intel Alder Lake laptop) |
+| 3 | ~rgam5terra~ | **rg.terra** — Fractal Terra + Ryzen 9950X + RTX 5070 |
 
-See [[file:profiles.org][profiles.org]] and [[file:installer.org][installer.org]].
+Exact SKUs, PCI/USB IDs, and rationale: [[file:hardware-manifest.org][hardware-manifest.org]].
+Also [[file:profiles.org][profiles.org]] and [[file:installer.org][installer.org]].
 
 * After install
 

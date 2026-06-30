@@ -3,53 +3,69 @@
 
 * Purpose
 
-Exact SKUs, option matrices, and *why* packages/kernel pins exist:
+hzArchiso supports **three** install profiles — one per owned/target machine.
+Each selects package deltas, hostname / =machine_name= defaults, and chezmoi
+=have_cuda=.
+
+| Slug | Machine | TUI # |
+|------|---------|-------|
+| ~rgx1gen11~ | ThinkPad X1 Carbon Gen 11 (21HM002GUS) | 1 (default) |
+| ~rgSURFLat~ | Dell Latitude 7430 | 2 |
+| ~rgam5terra~ | Fractal Terra AM5 + RTX 5070 (“rg.terra”) | 3 |
+
+**Full hardware tables, SKUs, PCI/USB IDs, and package/kernel rationale:**
 [[file:hardware-manifest.org][hardware-manifest.org]].
 
+Pair each laptop/desktop with the matching kernel overlay when building
+linux-rg: ~LINUX_RG_PROFILE=<slug> makepkg~.
 
-Profiles select *package deltas*, *hostname / machine_name defaults*, and
-chezmoi ~have_cuda~. Kernels on the installed system are stock ~linux~ and
-~linux-lts~ (custom ~linux-rg~ is optional via prebuilts / post-install).
-
-Pair laptop profiles with the matching linux-rg overlay when building a custom
-kernel: ~LINUX_RG_PROFILE=<slug> makepkg~.
-
-* rgx1gen11 (default)
+* rgx1gen11 (default) — ThinkPad X1 Carbon Gen 11
 
 | Attribute | Value |
 |-----------|-------|
-| Form | ThinkPad X1 Carbon Gen 11 |
-| Packages | Shared laptop set including ~tlp~ / ~tlp-rdw~ / ~thermald~ |
-| CUDA | ~have_cuda=no~ |
+| SKU | Lenovo **21HM002GUS** |
+| CPU | Intel Core **i7-1365U** (2P+8E) |
+| iGPU | Iris Xe **8086:a7a1** |
+| RAM / NVMe | 32 GiB / KIOXIA XG8 1 TB |
+| Wi-Fi / BT | CNVi **8086:51f1** / USB **8087:0033** |
+| Packages | Shared laptop set (=tlp=, =tlp-rdw=, =thermald=) |
+| CUDA | =have_cuda=no= |
+| Kernel | ~LINUX_RG_PROFILE=rgx1gen11~ |
 
-* rgSURFLat
-
-| Attribute | Value |
-|-----------|-------|
-| Form | Dell Latitude 7430 (Intel Alder Lake–U class) |
-| Packages | Laptop power stack *plus* ~intel-ucode~, ~mesa~, ~vulkan-intel~, |
-|  | ~intel-media-driver~, ~sof-firmware~, ~wireless-regdb~, ~fprintd~ |
-| Excluded | Terra-only ~amd-ucode~, NVIDIA stack, ~tuned~ |
-| Kernel | ~LINUX_RG_PROFILE=rgSURFLat~ (Dell WMI / Intel pins) |
-| Fingerprint | ~fprintd~ from repos; Broadcom TOD blob is AUR-only if needed |
-| Hardware detail | Full CPU option matrix, ports, WLAN, live probe: [[file:hardware-manifest.org][hardware-manifest.org]] |
-
-* rgam5terra
+* rgSURFLat — Dell Latitude 7430
 
 | Attribute | Value |
 |-----------|-------|
-| Form | AM5 mini-ITX desktop (Fractal Terra class) |
-| Packages | Drops laptop TLP stack; adds ~amd-ucode~, ~nvidia-open-dkms~, |
-|  | ~nvidia-utils~, ~nvidia-settings~, ~opencl-nvidia~, ~tuned~, ~tuned-ppd~ |
-| CUDA | ~have_cuda=yes~ |
+| Family | Latitude 7430 / 7430 2-in-1 (Alder Lake, Iris Xe) |
+| CPU | Factory matrix i5-1235U … i7-1270P (see manifest) |
+| I/O | 2× TB4, USB-A, HDMI 2.0, microSD |
+| WLAN | Intel AX211 class (typical) |
+| Packages | Laptop stack **+** =intel-ucode=, =mesa=, =vulkan-intel=, |
+|  | =intel-media-driver=, =sof-firmware=, =wireless-regdb=, =fprintd= |
+| Excluded | =amd-ucode=, NVIDIA, =tuned= |
+| CUDA | =have_cuda=no= |
+| Kernel | ~LINUX_RG_PROFILE=rgSURFLat~ (Dell WMI pins) |
+
+* rgam5terra — rg.terra (Fractal Terra AM5 desktop)
+
+| Attribute | Value |
+|-----------|-------|
+| Case | Fractal Terra Jade (SKU **591669**) |
+| CPU | Ryzen 9 **9950X** (SKU **721191**) |
+| Board | ASRock B650I Lightning WiFi (**657478**) |
+| GPU | ASUS RTX **5070** Dual 12 GB (**956516**) |
+| RAM / NVMe | 48 GiB DDR5-8000 (**655191**) / SN850X 2 TB (**691840**) |
+| PSU / cooler | SP850 V2 850 W (**911693**) / NH-L9a-AM4 on AM5 (**958454**) |
+| Packages | Drop TLP; add =amd-ucode=, =nvidia-open-dkms= stack, =tuned= |
+| CUDA | =have_cuda=yes= |
+| Kernel | ~LINUX_RG_PROFILE=rgam5terra= (znver5 RDSEED gated) |
 
 * Selection
 
-TUI welcome and profile field list numbered choices. CLI:
-
 #+begin_src shell
+hz-install --dry-run --profile rgx1gen11 --target-disk /dev/nvme0n1
 hz-install --dry-run --profile rgSURFLat --target-disk /dev/nvme0n1
-# TUI also accepts --profile 2  (index into the catalog)
+hz-install --dry-run --profile rgam5terra --target-disk /dev/nvme0n1
 hz-install-tui --dry-run --profile 2 --target-disk /dev/nvme0n1 \
   --output-dir /tmp/plan
 #+end_src
