@@ -13,6 +13,8 @@ hostname_set=0
 machine_name_set=0
 output_dir="/run/hz-install"
 dry_run=0
+slow_network=0
+linux_rg_dir="/opt/hzarchiso/linux-rg"
 
 usage() {
     cat <<'USAGE'
@@ -20,7 +22,7 @@ usage: hz-install --target-disk /dev/DISK [options]
 
 Options:
   --dry-run                 Render archinstall JSON but do not install.
-  --profile NAME            Machine profile: rgx1gen11 or rgam5terra.
+  --profile NAME            Machine profile: rgx1gen11, rgam5terra, or rglat5340.
   --target-disk PATH        Whole disk to partition.
   --hostname NAME           Installed hostname.
   --username NAME           Primary sudo user.
@@ -29,6 +31,10 @@ Options:
   --chezmoi-key-layout NAME Chezmoi key_layout value.
   --machine-name NAME       Chezmoi machine_name value.
   --output-dir PATH         Directory for rendered JSON.
+  --slow-network            Keep pacman downloading through stalls instead of
+                            aborting the transaction (DisableDownloadTimeout).
+  --linux-rg-dir PATH       Directory holding linux-rg and linux-rg-headers
+                            packages for rgam5terra (default /opt/hzarchiso/linux-rg).
   -h, --help                Show this help.
 USAGE
 }
@@ -47,6 +53,14 @@ while [ "$#" -gt 0 ]; do
         --dry-run)
             dry_run=1
             shift
+            ;;
+        --slow-network)
+            slow_network=1
+            shift
+            ;;
+        --linux-rg-dir)
+            linux_rg_dir=${2:-}
+            shift 2
             ;;
         --profile)
             profile=${2:-}
@@ -97,7 +111,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$profile" in
-    rgx1gen11 | rgam5terra)
+    rgx1gen11 | rgam5terra | rglat5340)
         ;;
     *)
         die "unsupported profile: $profile"
@@ -107,6 +121,11 @@ esac
 if [ "$profile" = "rgam5terra" ]; then
     [ "$hostname_set" -eq 0 ] && hostname="rgam5terra"
     [ "$machine_name_set" -eq 0 ] && machine_name="rgam5terra"
+fi
+
+if [ "$profile" = "rglat5340" ]; then
+    [ "$hostname_set" -eq 0 ] && hostname="rglat5340"
+    [ "$machine_name_set" -eq 0 ] && machine_name="rglat5340"
 fi
 
 [ -n "$target_disk" ] || die "--target-disk is required"
@@ -303,6 +322,7 @@ render_config() {
             "android-file-transfer",
             "android-tools",
             "flatpak",
+            "bluez",
             "bluez-utils",
             "alsa-utils",
             "pavucontrol",
@@ -352,24 +372,27 @@ render_config() {
             "linux-headers",
             "linux-lts-headers"
           ],
-          "parallel downloads": 5,
+          "parallel_downloads": 5,
           "profile_config": null,
           "script": "guided",
           "silent": false,
           "swap": true,
           "timezone": $timezone,
           "version": "2.6.0",
-          "custom-commands": [
+          "custom_commands": [
             "systemctl enable NetworkManager.service",
             "install -d -m 0755 /home/\($username)/.config/chezmoi",
-            "printf '\''[data]\ndisplay_manager = \"sway\"\nkey_layout = \"\($chezmoi_key_layout)\"\nencrypted = \"yes\"\nmachine_name = \"\($machine_name)\"\nsetup_mamba = \"no\"\nsetup_pixi = \"yes\"\nsetup_spack = \"no\"\nsetup_nix = \"no\"\nuse_rust = \"yes\"\nhave_cuda = \"\(if $profile == "rgam5terra" then "yes" else "no" end)\"\n'\'' > /home/\($username)/.config/chezmoi/chezmoi.toml",
+            "printf '\''[data]\nname = \"Rohit Goswami\"\nemail = \"r95g10@gmail.com\"\ndisplay_manager = \"sway\"\nkey_layout = \"\($chezmoi_key_layout)\"\nencrypted = \"yes\"\nmachine_name = \"\($machine_name)\"\nsetup_mamba = \"no\"\nsetup_pixi = \"yes\"\nsetup_spack = \"no\"\nsetup_nix = \"no\"\nuse_rust = \"yes\"\nhave_cuda = \"\(if $profile == "rgam5terra" then "yes" else "no" end)\"\n'\'' > /home/\($username)/.config/chezmoi/chezmoi.toml",
             "chown -R \($username):\($username) /home/\($username)/.config",
-            "sudo -u \($username) chezmoi init --apply HaoZeke --branch chezmoi"
+            "sudo -u \($username) chezmoi init --promptDefaults HaoZeke --branch chezmoi"
           ]
         }
         | if $profile == "rgam5terra" then
-            .packages = ((.packages - ["tlp", "tlp-rdw", "thermald"]) + [
+            .kernels += ["linux-rg"]
+            | .packages = ((.packages - ["tlp", "tlp-rdw", "thermald"]) + [
               "amd-ucode",
+              "linux-rg",
+              "linux-rg-headers",
               "nvidia-open-dkms",
               "nvidia-utils",
               "nvidia-settings",
@@ -377,6 +400,24 @@ render_config() {
               "tuned",
               "tuned-ppd"
             ])
+          elif $profile == "rglat5340" then
+            .packages += [
+              "intel-ucode",
+              "sof-firmware",
+              "alsa-ucm-conf",
+              "intel-media-driver",
+              "vulkan-intel",
+              "intel-gpu-tools",
+              "dunst",
+              "i3status-rust",
+              "rofi",
+              "mako",
+              "lxsession",
+              "xsettingsd",
+              "inetutils",
+              "wireguard-tools",
+              "xdg-user-dirs"
+            ]
           else
             .
           end
@@ -433,4 +474,56 @@ render_config >"$config_path"
 render_creds "$root_password" "$user_password" "$disk_password" >"$creds_path"
 chmod 600 "$config_path" "$creds_path"
 
-exec archinstall --config "$config_path" --creds "$creds_path" --silent
+# A network that drops NTP (UDP 123) leaves systemd-time-wait-sync running
+# forever, which holds pacman-init, the keyring, and archinstall's own waits.
+archinstall_flags=(--silent)
+ntp_synced=$(timedatectl show -p NTPSynchronized --value 2>/dev/null || echo no)
+if [ "$ntp_synced" != "yes" ]; then
+    printf 'hz-install: NTP is not synchronized; setting the clock over HTTPS\n' >&2
+    http_date=$(curl -fsSI --max-time 15 https://archlinux.org 2>/dev/null \
+        | tr -d '\r' | sed -n 's/^[Dd]ate: //p' | head -n 1)
+    [ -n "$http_date" ] || die "NTP is unsynchronized and no HTTPS Date header was reachable"
+    date -u -s "$http_date" >/dev/null
+    archinstall_flags+=(--skip-ntp --skip-wkd)
+fi
+# pacman aborts a download after 10 s below 1 B/s, and one aborted file fails
+# the whole pacstrap. A hotspot stalls longer than that routinely.
+if [ "$slow_network" -eq 1 ] && ! grep -q '^DisableDownloadTimeout' /etc/pacman.conf; then
+    printf 'hz-install: disabling the pacman download timeout for a slow network\n' >&2
+    sed -i '/^\[options\]/a DisableDownloadTimeout' /etc/pacman.conf
+fi
+# linux-rg is not in the Arch repositories. Serve the packages from a local
+# repository on the live system only, so the installed pacman.conf never
+# points at a path that disappears after reboot. Missing packages fail closed.
+if [ "$profile" = "rgam5terra" ]; then
+    shopt -s nullglob
+    rg_pkgs=("$linux_rg_dir"/linux-rg-[0-9]*.pkg.tar.* "$linux_rg_dir"/linux-rg-headers-[0-9]*.pkg.tar.*)
+    shopt -u nullglob
+    rg_pkgs=("${rg_pkgs[@]/%.sig/}")
+    has_kernel=0
+    has_headers=0
+    for pkg in "${rg_pkgs[@]}"; do
+        case "${pkg##*/}" in
+            linux-rg-headers-[0-9]*) has_headers=1 ;;
+            linux-rg-[0-9]*) has_kernel=1 ;;
+        esac
+    done
+    [ "$has_kernel" -eq 1 ] && [ "$has_headers" -eq 1 ] \
+        || die "rgam5terra needs linux-rg and linux-rg-headers packages in $linux_rg_dir"
+    local_repo="$output_dir/linux-rg-repo"
+    install -d -m 0755 "$local_repo"
+    cp -f "${rg_pkgs[@]}" "$local_repo"/
+    repo-add -q "$local_repo/hzlinuxrg.db.tar.gz" "$local_repo"/linux-rg-*.pkg.tar.* >/dev/null
+    if ! grep -q '^\[hzlinuxrg\]' /etc/pacman.conf; then
+        printf '\n[hzlinuxrg]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$local_repo" >>/etc/pacman.conf
+    fi
+    pacman -Sy >/dev/null
+fi
+if ! pacman-key --list-keys >/dev/null 2>&1; then
+    printf 'hz-install: pacman keyring is not initialized; initializing\n' >&2
+    systemctl stop pacman-init.service 2>/dev/null || true
+    pacman-key --init
+    pacman-key --populate archlinux
+fi
+
+exec archinstall --config "$config_path" --creds "$creds_path" "${archinstall_flags[@]}"
