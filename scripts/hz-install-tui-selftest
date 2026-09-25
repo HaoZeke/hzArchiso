@@ -56,9 +56,9 @@ assert_jq "$config" '.packages | index("zram-generator")' "zram package missing"
 if jq -e '.packages | index("kanata")' "$config" >/dev/null; then
     fail "kanata should be installed by the post-install bootstrap"
 fi
-assert_jq "$config" 'any(.["custom-commands"][]; contains("key_layout = \"colemak\""))' "chezmoi key layout missing"
+assert_jq "$config" 'any(.["custom_commands"][]; contains("key_layout = \"colemak\""))' "chezmoi key layout missing"
 assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
-assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
+assert_jq "$creds" '.encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
 
 terra_out="$tmpdir/terra"
 HZ_INSTALL_BACKEND="$backend" "$tui_bin" \
@@ -94,7 +94,7 @@ done
 assert_jq "$terra_config" '.kernels | index("linux")' "rgam5terra must keep stock linux kernel"
 assert_jq "$terra_config" '.kernels | index("linux-lts")' "rgam5terra must keep linux-lts kernel"
 assert_jq "$terra_config" '.kernels | index("linux-rg")' "rgam5terra must install linux-rg (additive with stock kernels)"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
+assert_jq "$terra_config" 'any(.["custom_commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
+assert_jq "$terra_config" 'any(.["custom_commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
 
 printf 'ok\n'

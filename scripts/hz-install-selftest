@@ -59,7 +59,7 @@ for pkg in \
     firefox chromium vivaldi obsidian libreoffice-fresh keepassxc obs-studio \
     kooha v4l2loopback-dkms vlc spotify-launcher element-desktop discord \
     thunar flatpak bluez-utils pamixer nm-connection-editor \
-    networkmanager-openvpn ripgrep fd btop yazi github-cli glab podman \
+    networkmanager-openvpn ripgrep fd btop yazi github-cli glab podman bluez \
     reflector noto-fonts ttf-jetbrains-mono-nerd kanshi; do
     # shellcheck disable=SC2016
     assert_jq "$config" '.packages | index($pkg)' "installed usability package missing: $pkg" --arg pkg "$pkg"
@@ -67,9 +67,37 @@ done
 if jq -e '.packages | index("kanata")' "$config" >/dev/null; then
     fail "kanata should be installed by the post-install bootstrap"
 fi
-assert_jq "$config" '.["custom-commands"][] | contains("chezmoi init")' "chezmoi bootstrap command missing"
+assert_jq "$config" '.["custom_commands"][] | contains("chezmoi init")' "chezmoi bootstrap command missing"
+# archinstall 4.3 reads these names; the hyphenated and spaced forms are ignored silently.
+assert_jq "$config" 'has("custom_commands") and (has("custom-commands") | not)' "custom commands must use the archinstall 4.3 key custom_commands"
+assert_jq "$config" 'has("parallel_downloads") and (has("parallel downloads") | not)' "parallel downloads must use the archinstall 4.3 key parallel_downloads"
 assert_jq "$creds" '.users[0].username == "rgoswami"' "user credentials were not rendered"
-assert_jq "$creds" '.disk_encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
+assert_jq "$creds" '.encryption_password == "CHANGEME"' "dry-run disk password placeholder missing"
+assert_jq "$config" 'any(.["custom_commands"][]; contains("email = "))' "chezmoi email missing, init would prompt without a tty"
+if jq -e 'any(.["custom_commands"][]; contains("chezmoi init --apply"))' "$config" >/dev/null; then
+    fail "chezmoi apply must run on the booted host, not in the install chroot"
+fi
+
+lat_out="$tmpdir/lat"
+"$installer" \
+    --dry-run \
+    --profile rglat5340 \
+    --target-disk /dev/testdisk \
+    --output-dir "$lat_out" >/dev/null
+lat_config="$lat_out/user_configuration.json"
+jq empty "$lat_config" >/dev/null || fail "rglat5340 config is not valid JSON"
+assert_jq "$lat_config" '.hostname == "rglat5340"' "rglat5340 hostname default missing"
+assert_jq "$lat_config" '.timezone == "America/Chicago"' "rglat5340 must keep the rgx1gen11 Livingston timezone"
+for pkg in intel-ucode sof-firmware alsa-ucm-conf intel-media-driver vulkan-intel tlp tlp-rdw thermald; do
+    # shellcheck disable=SC2016
+    assert_jq "$lat_config" '.packages | index($pkg)' "rglat5340 package missing: $pkg" --arg pkg "$pkg"
+done
+for pkg in amd-ucode nvidia-open-dkms tuned; do
+    if jq -e --arg pkg "$pkg" '.packages | index($pkg)' "$lat_config" >/dev/null; then
+        fail "rglat5340 should not install desktop-only package: $pkg"
+    fi
+done
+assert_jq "$lat_config" 'any(.["custom_commands"][]; contains("machine_name = \"rglat5340\""))' "rglat5340 machine name missing"
 
 terra_out="$tmpdir/terra"
 "$installer" \
@@ -102,8 +130,8 @@ done
 assert_jq "$terra_config" '.kernels | index("linux")' "rgam5terra must keep stock linux kernel"
 assert_jq "$terra_config" '.kernels | index("linux-lts")' "rgam5terra must keep linux-lts kernel"
 assert_jq "$terra_config" '.kernels | index("linux-rg")' "rgam5terra must install linux-rg (additive with stock kernels)"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
-assert_jq "$terra_config" 'any(.["custom-commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
+assert_jq "$terra_config" 'any(.["custom_commands"][]; contains("machine_name = \"rgam5terra\""))' "rgam5terra machine name missing"
+assert_jq "$terra_config" 'any(.["custom_commands"][]; contains("have_cuda = \"yes\""))' "rgam5terra CUDA flag missing"
 
 if "$installer" --dry-run --profile nope --target-disk /dev/testdisk --output-dir "$tmpdir/bad-profile" >/dev/null 2>&1; then
     fail "unsupported profile should fail"
