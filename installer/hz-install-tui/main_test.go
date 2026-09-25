@@ -127,3 +127,22 @@ func TestProfileFieldUpdatesHostDefaults(t *testing.T) {
 		t.Fatalf("machineName = %q, want rgam5terra", m.cfg.machineName)
 	}
 }
+
+func TestParseArgsAppliesLatitudeProfileDefaults(t *testing.T) {
+	cfg, err := parseArgs([]string{
+		"--profile", "rglat5340",
+		"--target-disk", "/dev/nvme0n1",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("parseArgs returned error: %v", err)
+	}
+	if cfg.hostname != "rglat5340" {
+		t.Fatalf("hostname = %q, want rglat5340", cfg.hostname)
+	}
+	if cfg.machineName != "rglat5340" {
+		t.Fatalf("machineName = %q, want rglat5340", cfg.machineName)
+	}
+	if cfg.timezone != "America/Chicago" {
+		t.Fatalf("timezone = %q, want the rgx1gen11 default America/Chicago", cfg.timezone)
+	}
+}

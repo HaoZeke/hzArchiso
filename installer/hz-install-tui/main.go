@@ -19,6 +19,7 @@ const (
 	defaultBackend  = "/usr/local/bin/hz-install"
 	profileRGX1     = "rgx1gen11"
 	profileAM5Terra = "rgam5terra"
+	profileLat5340  = "rglat5340"
 )
 
 var (
@@ -111,7 +112,7 @@ func parseArgs(args []string, output io.Writer) (installConfig, error) {
 	fs := flag.NewFlagSet("hz-install-tui", flag.ContinueOnError)
 	fs.SetOutput(output)
 	fs.BoolVar(&cfg.dryRun, "dry-run", false, "render archinstall JSON but do not install")
-	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile: rgx1gen11 or rgam5terra")
+	fs.StringVar(&cfg.profile, "profile", cfg.profile, "machine profile: rgx1gen11, rgam5terra, or rglat5340")
 	fs.StringVar(&cfg.targetDisk, "target-disk", cfg.targetDisk, "whole disk to partition")
 	fs.StringVar(&cfg.hostname, "hostname", cfg.hostname, "installed hostname")
 	fs.StringVar(&cfg.username, "username", cfg.username, "primary sudo user")
@@ -165,7 +166,7 @@ func validateConfig(cfg installConfig) error {
 
 func validProfile(profile string) bool {
 	switch profile {
-	case profileRGX1, profileAM5Terra:
+	case profileRGX1, profileAM5Terra, profileLat5340:
 		return true
 	default:
 		return false
@@ -178,6 +179,8 @@ func profileDefaultName(profile string) (string, bool) {
 		return profileRGX1, true
 	case profileAM5Terra:
 		return profileAM5Terra, true
+	case profileLat5340:
+		return profileLat5340, true
 	default:
 		return "", false
 	}
@@ -265,7 +268,7 @@ type fieldSpec struct {
 }
 
 var fields = []fieldSpec{
-	{label: "Profile", help: "Machine profile for hardware packages and defaults.", placeholder: "rgx1gen11 or rgam5terra"},
+	{label: "Profile", help: "Machine profile for hardware packages and defaults.", placeholder: "rgx1gen11, rgam5terra, or rglat5340"},
 	{label: "Target disk", help: "Whole disk path. This installer wipes it.", placeholder: "/dev/nvme0n1"},
 	{label: "Hostname", help: "Installed system hostname.", placeholder: profileRGX1},
 	{label: "Username", help: "Primary sudo user.", placeholder: "rgoswami"},
