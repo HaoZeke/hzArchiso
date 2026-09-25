@@ -24,6 +24,11 @@ Target profiles are selected with ~--profile~:
 
 - ~rgx1gen11~ keeps the ThinkPad laptop defaults and remains the default when
   no profile is specified.
+- ~rglat5340~ selects the Dell Latitude 5340 that replaces ~rgx1gen11~. It
+  keeps the ~rgx1gen11~ defaults, including the America/Chicago timezone, and
+  sets hostname and machine name to ~rglat5340~. It adds ~intel-ucode~,
+  ~sof-firmware~ and ~alsa-ucm-conf~ for the SOF audio DSP, and
+  ~intel-media-driver~, ~vulkan-intel~ and ~intel-gpu-tools~ for Iris Xe.
 - ~rgam5terra~ selects the Terra AM5 desktop target with AMD microcode,
   ~linux-rg~ / ~linux-rg-headers~ (prebuilt into the ~hzarchiso~ custom repo),
   NVIDIA open DKMS drivers, NVIDIA userspace/OpenCL tooling, and tuned. It
@@ -79,6 +84,8 @@ The current profile emphasizes:
   tools, Flatpak
 - laptop/rescue tooling: NetworkManager, tailscale, fwupd, smartmontools,
   nvme-cli, tlp, thermald, zram-generator
+- rglat5340 target tooling: intel-ucode, sof-firmware, alsa-ucm-conf,
+  intel-media-driver, vulkan-intel, intel-gpu-tools
 - rgam5terra target tooling: amd-ucode, linux-rg, linux-rg-headers,
   nvidia-open-dkms, nvidia-utils, nvidia-settings, opencl-nvidia, tuned,
   tuned-ppd
@@ -126,8 +133,55 @@ hz-install --dry-run \
   --output-dir /tmp/hz-install-rgam5terra
 #+end_src
 
+~rgam5terra~ installs ~linux-rg~ and ~linux-rg-headers~, which are not in the
+Arch repositories. Put both packages in ~/opt/hzarchiso/linux-rg~ on the live
+system, or pass ~--linux-rg-dir DIR~. hz-install builds a local repository from
+them and adds it to the live ~/etc/pacman.conf~ only, so the installed system
+never points at a path that is gone after reboot. The install stops before
+touching the disk if either package is missing.
+
+Render the Latitude 5340 profile:
+
+#+begin_src bash
+hz-install --dry-run \
+  --profile rglat5340 \
+  --target-disk /dev/nvme0n1 \
+  --output-dir /tmp/hz-install-rglat5340
+#+end_src
+
 Non-dry-run installs require root, a whole-disk block device, exact disk
 confirmation, root/user passwords, and a disk encryption password.
+
+** Networks that drop NTP
+Some hotspots and guest networks drop UDP 123. The live system then never
+reaches ~time-sync.target~, so ~pacman-init~ never runs and the keyring stays
+empty. The live image bounds ~systemd-time-wait-sync~ to 90 s with a drop-in,
+so ~pacman-init~ still runs. Before it hands over to ~archinstall~,
+~hz-install~ checks both:
+
+- When NTP is unsynchronized, it sets the clock from the HTTPS ~Date~ header
+  of archlinux.org and passes ~--skip-ntp --skip-wkd~ to ~archinstall~.
+- When the keyring is empty, it runs ~pacman-key --init~ and
+  ~pacman-key --populate archlinux~.
+
+** Slow or flaky networks
+pacman aborts a download that stays below 1 B/s for 10 s, and one aborted
+file fails the whole ~pacstrap~. On a phone hotspot that happens within the
+first hour. ~--slow-network~ adds ~DisableDownloadTimeout~ to the live
+~/etc/pacman.conf~ before ~archinstall~ starts:
+
+#+begin_src bash
+hz-install --profile rglat5340 --target-disk /dev/nvme0n1 --slow-network
+#+end_src
+
+** After the install
+~archinstall~ clones the dotfiles with ~init~ only. Templates rendered inside
+the install chroot see the live ISO, not the new host, so the first ~apply~
+runs on the booted system, after the age identity is in place:
+
+#+begin_src bash
+chezmoi init --apply HaoZeke --branch chezmoi
+#+end_src
 
 * Build Steps
 Build and validation should run on an Arch builder or in an Arch container.
